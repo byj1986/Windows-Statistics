@@ -1,0 +1,17 @@
+{
+    "startup": "userFirstLogin",
+    "workingApps": [
+        "Code.exe",
+        "Cursor.exe",
+        "Trae.exe",
+        "devenv.exe"
+    ],
+    "idleExempt": [
+        "vlc.exe",
+        "chrome.exe",
+        "msedge.exe",
+        "QQMusic.exe",
+        "xmp.exe",
+        "哔哩哔哩.exe"
+    ]
+}

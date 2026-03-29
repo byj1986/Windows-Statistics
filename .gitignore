@@ -1,0 +1,4 @@
+*.app.json
+*.idle.json
+*.log
+*.report.json
