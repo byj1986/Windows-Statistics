@@ -7,42 +7,23 @@ from datetime import datetime
 from pathlib import Path
 
 from data_manager import DataManager
-from monitor import Monitor
+from monitor import Monitor, sync_today_events
 from server import start_server
 from tray import TrayIcon
 
 _SENTINEL = Path(__file__).parent / ".sentinel.json"
 
 
-_SLEEP_INFER_THRESHOLD_SEC = 120  # 两次心跳之间超过此秒数则推断发生了休眠
-
-
 def _check_crash(dm: DataManager) -> None:
-    """若哨兵文件残留，说明上次进程被强制终止，补写日志后删除哨兵。
-    若 last_seen 与当前时间差超过阈值，推断期间发生了系统休眠并补写事件。"""
+    """若哨兵文件残留，说明上次进程未正常退出（崩溃/被杀/强制关机），补写日志后删除哨兵。
+    休眠/关机等系统事件由 Event Log 同步处理，此处仅记录进程终止。"""
     if not _SENTINEL.exists():
         return
     try:
         data = json.loads(_SENTINEL.read_text(encoding="utf-8"))
         date_str = data.get("date", "")
         date = datetime.strptime(date_str, "%Y%m%d")
-        last_seen_str = data.get("last_seen")
-        now = datetime.now()
-
-        if last_seen_str:
-            try:
-                last_seen = datetime.strptime(last_seen_str, "%Y-%m-%d %H:%M:%S")
-                gap_sec = (now - last_seen).total_seconds()
-                if gap_sec > _SLEEP_INFER_THRESHOLD_SEC:
-                    # 间隔较长：推断期间发生了休眠，用 last_seen 作为休眠时刻
-                    dm.write_log("系统休眠", date=last_seen)
-                    dm.write_log("系统唤醒")
-                else:
-                    dm.write_log("进程终止", date=date)
-            except Exception:
-                dm.write_log("进程终止", date=date)
-        else:
-            dm.write_log("进程终止", date=date)
+        dm.write_log("进程终止", date=date)
     except Exception:
         pass
     _SENTINEL.unlink(missing_ok=True)
@@ -69,10 +50,12 @@ def main() -> None:
         config = {"startup": "userFirstLogin", "workingApps": [], "idleExempt": []}
 
     dm = DataManager(base_dir)
-    dm.ensure_day_files(datetime.now())
+    now = datetime.now()
+    dm.ensure_day_files(now)
     _check_crash(dm)
+    processed_ids = sync_today_events(dm, now)
     dm.write_log("应用启动")
-    _write_sentinel(datetime.now())
+    _write_sentinel(now)
 
     _exit_logged = False
 
@@ -93,6 +76,7 @@ def main() -> None:
         dm, config,
         on_day_change=_write_sentinel,
         on_heartbeat=lambda: _write_sentinel(datetime.now()),
+        initial_processed_ids=processed_ids,
     )
     monitor.start()
 

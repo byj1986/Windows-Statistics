@@ -34,12 +34,14 @@ class DataManager:
 
     # ---- Log ----
 
-    def write_log(self, message: str, date: datetime | None = None, extra: str | None = None) -> None:
+    def write_log(self, message: str, date: datetime | None = None, extra: str | None = None,
+                  timestamp: datetime | None = None) -> None:
         if date is None:
             date = datetime.now()
         with self._lock:
             path = self._file_path(date, ".log")
-            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            ts_dt = timestamp if timestamp is not None else datetime.now()
+            ts = ts_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             with open(path, "a", encoding="utf-8") as f:
                 f.write(f"[{ts}] {message}\n")
                 if extra:
@@ -205,7 +207,7 @@ class DataManager:
         sessions: list[list[str]] = []
         current_start: str | None = None
 
-        start_events = {"应用启动", "用户登录", "用户解锁", "系统唤醒"}
+        start_events = {"应用启动", "用户登录", "用户解锁", "系统开机", "系统唤醒"}
         end_events = {"应用退出", "进程终止", "用户登出", "用户锁屏", "系统休眠", "系统关机"}
 
         for line in log_lines:

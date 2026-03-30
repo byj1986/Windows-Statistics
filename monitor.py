@@ -1,8 +1,12 @@
 import ctypes
 import ctypes.wintypes as wintypes
+import queue
+import re
+import subprocess
 import threading
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import psutil
 
@@ -16,27 +20,56 @@ WM_QUIT = 0x0012
 WM_TIMER = 0x0113
 WM_ENDSESSION = 0x0016
 WM_QUERYENDSESSION = 0x0011
-WM_POWERBROADCAST = 0x0218
-WM_WTSSESSION_CHANGE = 0x02B1
 
-PBT_APMSUSPEND = 0x0004
-PBT_APMRESUMEAUTOMATIC = 0x0012
-PBT_APMRESUMESUSPEND = 0x0007
-
-WTS_SESSION_LOGON = 5
-WTS_SESSION_LOGOFF = 6
-WTS_SESSION_LOCK = 7
-WTS_SESSION_UNLOCK = 8
-
-NOTIFY_FOR_THIS_SESSION = 0
 IDLE_THRESHOLD_SEC = 60
-TIMER_INTERVAL_MS = 5000
+TIMER_INTERVAL_MS = 1000
 TIMER_ID = 1
+IDLE_CHECK_TICKS = 5
+HEARTBEAT_TICKS = 60
+
+# ---- Event Log Mapping ----
+_SYSTEM_EVENTS: dict[tuple[str, int], str] = {
+    ("Microsoft-Windows-Kernel-Power", 42): "系统休眠",
+    ("Microsoft-Windows-Power-Troubleshooter", 1): "系统唤醒",
+    ("Microsoft-Windows-Winlogon", 7001): "用户登录",
+    ("Microsoft-Windows-Winlogon", 7002): "用户登出",
+    ("User32", 1074): "系统关机",
+    ("EventLog", 6005): "系统开机",
+    ("EventLog", 6006): "系统关机",
+}
+
+_SECURITY_EVENTS: dict[int, str] = {
+    4800: "用户锁屏",
+    4801: "用户解锁",
+}
+
+_SUSPEND_MESSAGES = frozenset({"系统休眠", "用户登出", "用户锁屏", "系统关机"})
+_RESUME_MESSAGES = frozenset({"系统开机", "系统唤醒", "用户登录", "用户解锁"})
+
+_SYSTEM_XPATH_BASE = (
+    "*[System[("
+    "(Provider[@Name='Microsoft-Windows-Kernel-Power'] and EventID=42) or "
+    "(Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1) or "
+    "(Provider[@Name='Microsoft-Windows-Winlogon'] and (EventID=7001 or EventID=7002)) or "
+    "(Provider[@Name='User32'] and EventID=1074) or "
+    "(Provider[@Name='EventLog'] and (EventID=6005 or EventID=6006))"
+    ")"
+)
+
+_SECURITY_XPATH_BASE = "*[System[(EventID=4800 or EventID=4801)"
+
+_WINLOGON_OP_CHANNEL = "Microsoft-Windows-Winlogon/Operational"
+_WINLOGON_OP_NOTIFY: dict[int, str] = {
+    4: "用户锁屏",
+    5: "用户解锁",
+}
+_WINLOGON_OP_XPATH_BASE = "*[System[EventID=811"
+
+_EVT_NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
 
 # ---- DLL handles ----
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
-wtsapi32 = ctypes.windll.wtsapi32
 
 # ---- ctypes type aliases ----
 LRESULT = ctypes.c_ssize_t
@@ -122,11 +155,6 @@ user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
 user32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 user32.PostThreadMessageW.restype = wintypes.BOOL
 
-wtsapi32.WTSRegisterSessionNotification.argtypes = [wintypes.HWND, wintypes.DWORD]
-wtsapi32.WTSRegisterSessionNotification.restype = wintypes.BOOL
-wtsapi32.WTSUnRegisterSessionNotification.argtypes = [wintypes.HWND]
-wtsapi32.WTSUnRegisterSessionNotification.restype = wintypes.BOOL
-
 kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 kernel32.GetModuleHandleW.restype = wintypes.HMODULE
 kernel32.GetCurrentThreadId.restype = wintypes.DWORD
@@ -137,15 +165,165 @@ def _now_str() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
+# ---- Event Log helpers ----
+
+def _parse_utc_time(s: str) -> datetime:
+    """Parse UTC timestamp from Windows Event Log XML (7-digit fractional + Z)."""
+    s = s.rstrip("Z")
+    if "." in s:
+        base, frac = s.split(".", 1)
+        s = f"{base}.{frac[:6]}"
+    return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+
+
+def _build_xpath(base: str, timediff_ms: int) -> str:
+    """Append a TimeCreated filter to the open XPath base and close brackets."""
+    return f"{base} and TimeCreated[timediff(@SystemTime) <= {timediff_ms}]]]"
+
+
+def _run_wevtutil(channel: str, xpath_base: str, timediff_ms: int) -> list[dict]:
+    """Run wevtutil qe and parse XML output into event dicts."""
+    xpath = _build_xpath(xpath_base, timediff_ms)
+    cmd = ["wevtutil", "qe", channel, f"/q:{xpath}", "/f:xml", "/rd:false"]
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, encoding="utf-8", errors="replace",
+            timeout=10, creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0 or not result.stdout.strip():
+        return []
+
+    try:
+        root = ET.fromstring(f"<E>{result.stdout}</E>")
+    except ET.ParseError:
+        return []
+
+    events: list[dict] = []
+    for event_el in root.findall(f"{_EVT_NS}Event"):
+        system_el = event_el.find(f"{_EVT_NS}System")
+        if system_el is None:
+            continue
+
+        provider_el = system_el.find(f"{_EVT_NS}Provider")
+        provider = provider_el.get("Name", "") if provider_el is not None else ""
+
+        eid_el = system_el.find(f"{_EVT_NS}EventID")
+        event_id = int(eid_el.text) if eid_el is not None and eid_el.text else 0
+
+        time_el = system_el.find(f"{_EVT_NS}TimeCreated")
+        time_str = time_el.get("SystemTime", "") if time_el is not None else ""
+        if not time_str:
+            continue
+
+        rec_el = system_el.find(f"{_EVT_NS}EventRecordID")
+        record_id = rec_el.text if rec_el is not None and rec_el.text else ""
+        if not record_id:
+            continue
+
+        if channel == "Security":
+            message = _SECURITY_EVENTS.get(event_id)
+        elif channel == _WINLOGON_OP_CHANNEL:
+            data_el = event_el.find(f"{_EVT_NS}EventData")
+            notify_type = None
+            if data_el is not None:
+                for d in data_el:
+                    if d.get("Name") == "Event" and d.text:
+                        try:
+                            notify_type = int(d.text)
+                        except ValueError:
+                            pass
+                        break
+            message = _WINLOGON_OP_NOTIFY.get(notify_type) if notify_type is not None else None
+        else:
+            message = _SYSTEM_EVENTS.get((provider, event_id))
+        if not message:
+            continue
+
+        try:
+            time_utc = _parse_utc_time(time_str)
+            time_local = time_utc.astimezone().replace(tzinfo=None)
+        except (ValueError, OSError):
+            continue
+
+        events.append({
+            "record_id": f"{channel}:{record_id}",
+            "time_utc": time_str,
+            "time_local": time_local,
+            "message": message,
+        })
+
+    return events
+
+
+def _fetch_events(timediff_ms: int) -> list[dict]:
+    """Fetch events from System, Security, and Winlogon Operational logs."""
+    events = _run_wevtutil("System", _SYSTEM_XPATH_BASE, timediff_ms)
+    try:
+        events.extend(_run_wevtutil("Security", _SECURITY_XPATH_BASE, timediff_ms))
+    except Exception:
+        pass
+    try:
+        events.extend(_run_wevtutil(_WINLOGON_OP_CHANNEL, _WINLOGON_OP_XPATH_BASE, timediff_ms))
+    except Exception:
+        pass
+    events.sort(key=lambda e: e["time_utc"])
+
+    # Deduplicate events with same message within 10 seconds (e.g. multiple shutdown sources)
+    result: list[dict] = []
+    seen: dict[str, datetime] = {}
+    for evt in events:
+        msg = evt["message"]
+        ts = evt["time_local"]
+        if msg in seen and abs((ts - seen[msg]).total_seconds()) < 10:
+            continue
+        seen[msg] = ts
+        result.append(evt)
+    return result
+
+
+def sync_today_events(dm: DataManager, today: datetime) -> set[str]:
+    """Sync today's events from Windows Event Log on startup.
+
+    Queries the System and Security event logs for today's power/session events,
+    deduplicates against existing log entries, writes missing events, and returns
+    the set of processed EventRecordIDs for the poll thread to skip.
+    """
+    today_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+    timediff_ms = int((datetime.now() - today_start).total_seconds() * 1000) + 60_000
+
+    events = _fetch_events(timediff_ms)
+    today_date = today.date()
+    events = [e for e in events if e["time_local"].date() == today_date]
+
+    existing: set[tuple[str, str]] = set()
+    for line in dm.read_log(today):
+        m = re.match(r"\[(.+?)\]\s+(.+)", line.strip())
+        if m:
+            existing.add((m.group(1)[:19], m.group(2)))
+
+    processed_ids: set[str] = set()
+    for evt in events:
+        processed_ids.add(evt["record_id"])
+        ts_sec = evt["time_local"].strftime("%Y-%m-%d %H:%M:%S")
+        if (ts_sec, evt["message"]) not in existing:
+            dm.write_log(evt["message"], date=evt["time_local"], timestamp=evt["time_local"])
+
+    return processed_ids
+
+
 class Monitor:
     def __init__(self, data_manager: DataManager, config: dict,
                  on_day_change: Callable[[datetime], None] | None = None,
-                 on_heartbeat: Callable[[], None] | None = None):
+                 on_heartbeat: Callable[[], None] | None = None,
+                 initial_processed_ids: set[str] | None = None):
         self.dm = data_manager
         self.config = config
         self._on_day_change = on_day_change
         self._on_heartbeat = on_heartbeat
         self._heartbeat_ticks = 0
+        self._idle_ticks = 0
 
         self.current_process: str | None = None
         self.current_title: str | None = None
@@ -163,17 +341,32 @@ class Monitor:
         self._wnd_proc_ptr: WNDPROC | None = None
         self._win_event_ptr: WinEventProcType | None = None
 
+        self._event_queue: queue.Queue = queue.Queue()
+        self._processed_ids: set[str] = initial_processed_ids.copy() if initial_processed_ids else set()
+        self._stop_event = threading.Event()
+        self._poll_thread: threading.Thread | None = None
+
     # ---- Public API ----
 
     def start(self) -> None:
         self._today = datetime.now()
         self.app_data = self.dm.read_app_data(self._today)
         self.idle_data = self.dm.read_idle_data(self._today)
+
+        self._stop_event.clear()
+        self._poll_thread = threading.Thread(
+            target=self._poll_loop, daemon=True, name="evtlog-poll",
+        )
+        self._poll_thread.start()
+
         self._thread = threading.Thread(target=self._run, daemon=True, name="monitor")
         self._thread.start()
         self._ready.wait(timeout=10)
 
     def stop(self) -> None:
+        self._stop_event.set()
+        if self._poll_thread:
+            self._poll_thread.join(timeout=3)
         if self._thread_id:
             user32.PostThreadMessageW(self._thread_id, WM_QUIT, 0, 0)
         if self._thread:
@@ -185,7 +378,6 @@ class Monitor:
     def _run(self) -> None:
         self._thread_id = kernel32.GetCurrentThreadId()
         self._create_hidden_window()
-        wtsapi32.WTSRegisterSessionNotification(self._hwnd, NOTIFY_FOR_THIS_SESSION)
 
         self._win_event_ptr = WinEventProcType(self._on_foreground_event)
         self._hook = user32.SetWinEventHook(
@@ -222,12 +414,6 @@ class Monitor:
         )
 
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
-        if msg == WM_POWERBROADCAST:
-            self._on_power(wparam)
-            return 1
-        if msg == WM_WTSSESSION_CHANGE:
-            self._on_session(wparam)
-            return 0
         if msg == WM_TIMER and wparam == TIMER_ID:
             self._on_timer()
             return 0
@@ -245,7 +431,6 @@ class Monitor:
             self._hook = None
         if self._hwnd:
             user32.KillTimer(self._hwnd, TIMER_ID)
-            wtsapi32.WTSUnRegisterSessionNotification(self._hwnd)
             user32.DestroyWindow(self._hwnd)
             self._hwnd = None
 
@@ -314,62 +499,69 @@ class Monitor:
         if entries and "ended" not in entries[-1]:
             entries[-1]["ended"] = now
 
-    # ---- Power events ----
+    # ---- Event Log Polling ----
 
-    def _on_power(self, wparam) -> None:
-        now = datetime.now()
-        ts = _now_str()
-        if wparam == PBT_APMSUSPEND:
-            self.dm.write_log("系统休眠", now)
+    def _poll_loop(self) -> None:
+        """Poll thread: query event log every second, push new events to queue."""
+        last_poll = datetime.now()
+        while not self._stop_event.wait(1.0):
+            try:
+                now = datetime.now()
+                gap_ms = int((now - last_poll).total_seconds() * 1000) + 2000
+                gap_ms = max(gap_ms, 5000)
+                events = _fetch_events(timediff_ms=gap_ms)
+                for evt in events:
+                    if evt["record_id"] not in self._processed_ids:
+                        self._processed_ids.add(evt["record_id"])
+                        self._event_queue.put(evt)
+                last_poll = now
+            except Exception:
+                pass
+
+    def _drain_event_queue(self) -> None:
+        """Process all queued events (called from timer in message loop thread)."""
+        while True:
+            try:
+                evt = self._event_queue.get_nowait()
+            except queue.Empty:
+                break
+            self._process_event(evt)
+
+    def _process_event(self, evt: dict) -> None:
+        """Process a polled event: write log and trigger side effects."""
+        message = evt["message"]
+        ts = evt["time_local"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+        self.dm.write_log(message, date=evt["time_local"], timestamp=evt["time_local"])
+
+        if message in _SUSPEND_MESSAGES:
             self._end_current_entry(ts)
             self.dm.write_app_data(self._today, self.app_data)
             if self.is_idle:
                 self._end_idle(ts)
             self.current_process = None
             self.current_title = None
-        elif wparam in (PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND):
+        elif message in _RESUME_MESSAGES:
             self._check_day_change()
-            self.dm.write_log("系统唤醒")
             self._capture_foreground(initial=True)
 
-    # ---- Session events ----
-
-    def _on_session(self, wparam) -> None:
-        now = datetime.now()
-        ts = _now_str()
-        if wparam == WTS_SESSION_LOGON:
-            self.dm.write_log("用户登录", now)
-            self._capture_foreground(initial=True)
-        elif wparam == WTS_SESSION_LOGOFF:
-            self.dm.write_log("用户登出", now)
-            self._end_current_entry(ts)
-            self.dm.write_app_data(self._today, self.app_data)
-            if self.is_idle:
-                self._end_idle(ts)
-            self.current_process = None
-            self.current_title = None
-        elif wparam == WTS_SESSION_LOCK:
-            self.dm.write_log("用户锁屏", now)
-            self._end_current_entry(ts)
-            self.dm.write_app_data(self._today, self.app_data)
-            if self.is_idle:
-                self._end_idle(ts)
-            self.current_process = None
-            self.current_title = None
-        elif wparam == WTS_SESSION_UNLOCK:
-            self._check_day_change()
-            self.dm.write_log("用户解锁", now)
-            self._capture_foreground(initial=True)
-
-    # ---- Idle detection ----
+    # ---- Timer ----
 
     def _on_timer(self) -> None:
+        self._drain_event_queue()
+
         self._heartbeat_ticks += 1
-        if self._heartbeat_ticks >= 12:  # 每 60 秒心跳一次（12 × 5s）
+        if self._heartbeat_ticks >= HEARTBEAT_TICKS:
             self._heartbeat_ticks = 0
             if self._on_heartbeat:
                 self._on_heartbeat()
 
+        self._idle_ticks += 1
+        if self._idle_ticks >= IDLE_CHECK_TICKS:
+            self._idle_ticks = 0
+            self._check_idle()
+
+    def _check_idle(self) -> None:
         if self.current_process is None:
             return
 
