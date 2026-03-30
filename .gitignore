@@ -2,3 +2,5 @@
 *.idle.json
 *.log
 *.report.json
+*.sentinel.json
+__pycache__/
