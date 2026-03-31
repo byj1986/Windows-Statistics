@@ -28,6 +28,14 @@ IDLE_CHECK_TICKS = 5
 HEARTBEAT_TICKS = 60
 EVTLOG_POLL_INTERVAL_SEC = 10
 
+# ---- UWP / AppModel ----
+_APPFRAMEHOST_EXE = "applicationframehost.exe"
+_UWP_PROCESS_PREFIX = "UWP:"
+
+# {9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3} pid 5
+_PKEY_AppUserModel_ID_FMTID = (0x9F4C2855, 0x9F79, 0x4B39, (0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3))
+_PKEY_AppUserModel_ID_PID = 5
+
 # ---- Event Log Mapping ----
 _SYSTEM_EVENTS: dict[tuple[str, int], str] = {
     ("Microsoft-Windows-Kernel-Power", 42): "系统休眠",
@@ -71,6 +79,8 @@ _EVT_NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
 # ---- DLL handles ----
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
+ole32 = ctypes.windll.ole32
+shell32 = ctypes.windll.shell32
 
 # ---- ctypes type aliases ----
 LRESULT = ctypes.c_ssize_t
@@ -110,6 +120,109 @@ class LASTINPUTINFO(ctypes.Structure):
     ]
 
 
+class GUID(ctypes.Structure):
+    _fields_ = [
+        ("Data1", wintypes.DWORD),
+        ("Data2", wintypes.WORD),
+        ("Data3", wintypes.WORD),
+        ("Data4", ctypes.c_ubyte * 8),
+    ]
+
+
+class PROPERTYKEY(ctypes.Structure):
+    _fields_ = [("fmtid", GUID), ("pid", wintypes.DWORD)]
+
+
+class PROPVARIANT(ctypes.Structure):
+    _fields_ = [
+        ("vt", wintypes.USHORT),
+        ("wReserved1", wintypes.USHORT),
+        ("wReserved2", wintypes.USHORT),
+        ("wReserved3", wintypes.USHORT),
+        ("value", ctypes.c_void_p),
+    ]
+
+
+# ---- COM / Shell prototypes ----
+ole32.CoInitializeEx.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+ole32.CoInitializeEx.restype = wintypes.HRESULT
+ole32.CoUninitialize.argtypes = []
+ole32.CoUninitialize.restype = None
+ole32.PropVariantClear.argtypes = [ctypes.POINTER(PROPVARIANT)]
+ole32.PropVariantClear.restype = wintypes.HRESULT
+
+shell32.SHGetPropertyStoreForWindow.argtypes = [
+    wintypes.HWND,
+    ctypes.POINTER(GUID),
+    ctypes.POINTER(ctypes.c_void_p),
+]
+shell32.SHGetPropertyStoreForWindow.restype = wintypes.HRESULT
+
+
+def _guid(data1: int, data2: int, data3: int, data4: tuple[int, ...]) -> GUID:
+    g = GUID()
+    g.Data1 = data1
+    g.Data2 = data2
+    g.Data3 = data3
+    g.Data4 = (ctypes.c_ubyte * 8)(*data4)
+    return g
+
+
+_IID_IPropertyStore = _guid(0x886D8EEB, 0x8CF2, 0x4446, (0x8D, 0x02, 0xCD, 0xBA, 0x1D, 0xBD, 0xCF, 0x99))
+_PKEY_AppUserModel_ID = PROPERTYKEY(_guid(*_PKEY_AppUserModel_ID_FMTID), _PKEY_AppUserModel_ID_PID)
+
+
+def _get_window_aumid(hwnd: wintypes.HWND) -> str | None:
+    """Best-effort: read AppUserModelID from the window property store."""
+    COINIT_APARTMENTTHREADED = 0x2
+    VT_LPWSTR = 31
+
+    hr = ole32.CoInitializeEx(None, COINIT_APARTMENTTHREADED)
+    coinit_ok = hr >= 0  # S_OK (0) / S_FALSE (1) / other success codes
+    try:
+        store_ptr = ctypes.c_void_p()
+        hr = shell32.SHGetPropertyStoreForWindow(hwnd, ctypes.byref(_IID_IPropertyStore), ctypes.byref(store_ptr))
+        if hr < 0 or not store_ptr.value:
+            return None
+
+        pv = PROPVARIANT()
+        try:
+            vtbl = ctypes.cast(store_ptr.value, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+            # IPropertyStore::GetValue is vtbl[5]; Release is vtbl[2]
+            get_value = ctypes.WINFUNCTYPE(
+                wintypes.HRESULT, ctypes.c_void_p, ctypes.POINTER(PROPERTYKEY), ctypes.POINTER(PROPVARIANT),
+            )(vtbl[5])
+            release = ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)(vtbl[2])
+
+            hr = get_value(store_ptr, ctypes.byref(_PKEY_AppUserModel_ID), ctypes.byref(pv))
+            if hr < 0 or pv.vt != VT_LPWSTR or not pv.value:
+                return None
+            return ctypes.wstring_at(pv.value)
+        finally:
+            ole32.PropVariantClear(ctypes.byref(pv))
+            # Release store regardless of GetValue outcome
+            try:
+                vtbl = ctypes.cast(store_ptr.value, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+                release = ctypes.WINFUNCTYPE(wintypes.ULONG, ctypes.c_void_p)(vtbl[2])
+                release(store_ptr)
+            except Exception:
+                pass
+    finally:
+        if coinit_ok:
+            ole32.CoUninitialize()
+
+
+def _aumid_to_package_name(aumid: str) -> str | None:
+    """Convert AUMID like `Name_Publisher!App` to `Name` (best-effort)."""
+    if not aumid:
+        return None
+    pfn = aumid.split("!", 1)[0]
+    if "_" not in pfn:
+        return None
+    pkg = pfn.rsplit("_", 1)[0]
+    return pkg or None
+
+
 # ---- Function prototypes ----
 user32.SetWinEventHook.restype = wintypes.HANDLE
 user32.SetWinEventHook.argtypes = [
@@ -127,6 +240,13 @@ user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
 user32.GetWindowTextLengthW.restype = ctypes.c_int
 user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
 user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+
+user32.EnumChildWindows.argtypes = [wintypes.HWND, ctypes.c_void_p, wintypes.LPARAM]
+user32.EnumChildWindows.restype = wintypes.BOOL
+user32.IsWindowVisible.argtypes = [wintypes.HWND]
+user32.IsWindowVisible.restype = wintypes.BOOL
+user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+user32.GetClassNameW.restype = ctypes.c_int
 
 user32.GetLastInputInfo.argtypes = [ctypes.POINTER(LASTINPUTINFO)]
 user32.GetLastInputInfo.restype = wintypes.BOOL
@@ -160,6 +280,46 @@ kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 kernel32.GetModuleHandleW.restype = wintypes.HMODULE
 kernel32.GetCurrentThreadId.restype = wintypes.DWORD
 kernel32.GetTickCount.restype = wintypes.DWORD
+
+
+def _get_class_name(hwnd: wintypes.HWND) -> str:
+    buf = ctypes.create_unicode_buffer(256)
+    n = user32.GetClassNameW(hwnd, buf, 256)
+    return buf.value[:n] if n > 0 else ""
+
+
+def _resolve_real_pid_for_appframe(hwnd: wintypes.HWND, host_pid: int) -> int | None:
+    """Best-effort: for ApplicationFrameHost windows, find a child window owned by the real UWP app."""
+    candidates = {
+        "Windows.UI.Core.CoreWindow",
+        "ApplicationFrameWindow",
+    }
+
+    found: dict[str, int] = {"pid": 0}
+    enum_cb_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+    def _cb(child_hwnd, lparam) -> int:
+        try:
+            if not user32.IsWindowVisible(child_hwnd):
+                return 1
+            cls = _get_class_name(child_hwnd)
+            if cls and cls not in candidates:
+                return 1
+            child_pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(child_hwnd, ctypes.byref(child_pid))
+            if child_pid.value and child_pid.value != host_pid:
+                found["pid"] = int(child_pid.value)
+                return 0
+        except Exception:
+            return 1
+        return 1
+
+    cb = enum_cb_type(_cb)
+    try:
+        user32.EnumChildWindows(hwnd, cb, 0)
+    except Exception:
+        return None
+    return found["pid"] or None
 
 
 def _now_str() -> str:
@@ -469,6 +629,20 @@ class Monitor:
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             self._clear_foreground()
             return
+
+        # UWP windows are often hosted by ApplicationFrameHost.exe; try to resolve to the real app.
+        if process_name.lower() == _APPFRAMEHOST_EXE:
+            try:
+                real_pid = _resolve_real_pid_for_appframe(hwnd, int(pid.value))
+                if real_pid:
+                    process_name = psutil.Process(real_pid).name()
+                else:
+                    aumid = _get_window_aumid(hwnd)
+                    if aumid:
+                        pkg = _aumid_to_package_name(aumid)
+                        process_name = f"{_UWP_PROCESS_PREFIX}{pkg or aumid}"
+            except Exception:
+                pass
 
         length = user32.GetWindowTextLengthW(hwnd)
         if length > 0:
