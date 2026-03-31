@@ -1,0 +1,12 @@
+pyinstaller --noconfirm --clean --onedir --windowed \
+  --name "WindowsStatistics" \
+  --add-data "daily.html;." \
+  --add-data "weekly.html;." \
+  --add-data "mock-header-choices.html;." \
+  --add-data "echarts.min.js;." \
+  --add-data "statistics.configuration.json;." \
+  --add-data "statistics.ico;." \
+  main.py
+
+
+pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" --add-data "daily.html;." --add-data "weekly.html;." --add-data "mock-header-choices.html;." --add-data "echarts.min.js;." --add-data "statistics.configuration.json;." --add-data "statistics.ico;." main.py

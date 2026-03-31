@@ -13,9 +13,16 @@ from monitor import Monitor, sync_today_events
 from server import start_server
 from tray import TrayIcon
 
-_SENTINEL = Path(__file__).parent / ".sentinel.json"
+_SENTINEL: Path | None = None
 _MUTEX_NAME = "Global\\WindowsStatisticsMonitor"
 _mutex_handle = None
+
+
+def _get_base_dir() -> Path:
+    # PyInstaller: frozen apps should use the exe directory for writable app data.
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
 
 
 def _ensure_single_instance() -> bool:
@@ -34,6 +41,8 @@ def _ensure_single_instance() -> bool:
 def _check_crash(dm: DataManager) -> None:
     """若哨兵文件残留，说明上次进程未正常退出（崩溃/被杀/强制关机），补写日志后删除哨兵。
     休眠/关机等系统事件由 Event Log 同步处理，此处仅记录进程终止。"""
+    if _SENTINEL is None:
+        return
     if not _SENTINEL.exists():
         return
     try:
@@ -50,6 +59,8 @@ def _check_crash(dm: DataManager) -> None:
 
 
 def _write_sentinel(date: datetime) -> None:
+    if _SENTINEL is None:
+        return
     _SENTINEL.write_text(
         json.dumps({
             "date": date.strftime("%Y%m%d"),
@@ -60,11 +71,13 @@ def _write_sentinel(date: datetime) -> None:
 
 
 def main() -> None:
+    global _SENTINEL
     if not _ensure_single_instance():
         print("已有一个实例正在运行，退出。")
         sys.exit(1)
 
-    base_dir = Path(__file__).parent
+    base_dir = _get_base_dir()
+    _SENTINEL = base_dir / ".sentinel.json"
 
     config_path = base_dir / "statistics.configuration.json"
     try:
@@ -92,7 +105,8 @@ def main() -> None:
         if exc is not None:
             extra = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         dm.write_log("应用退出", extra=extra)
-        _SENTINEL.unlink(missing_ok=True)
+        if _SENTINEL is not None:
+            _SENTINEL.unlink(missing_ok=True)
 
     start_server(dm, base_dir, port=8000)
 
