@@ -26,6 +26,7 @@ TIMER_INTERVAL_MS = 1000
 TIMER_ID = 1
 IDLE_CHECK_TICKS = 5
 HEARTBEAT_TICKS = 60
+EVTLOG_POLL_INTERVAL_SEC = 10
 
 # ---- Event Log Mapping ----
 _SYSTEM_EVENTS: dict[tuple[str, int], str] = {
@@ -440,20 +441,33 @@ class Monitor:
         if event == EVENT_SYSTEM_FOREGROUND:
             self._capture_foreground()
 
+    def _clear_foreground(self) -> None:
+        """Close the current foreground entry when the active window is unidentifiable."""
+        if self.current_process is None:
+            return
+        now = _now_str()
+        self._end_current_entry(now)
+        self.dm.write_app_data(self._today, self.app_data)
+        self.current_process = None
+        self.current_title = None
+
     def _capture_foreground(self, initial: bool = False) -> None:
         hwnd = user32.GetForegroundWindow()
         if not hwnd:
+            self._clear_foreground()
             return
 
         pid = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
         if pid.value == 0:
+            self._clear_foreground()
             return
 
         try:
             proc = psutil.Process(pid.value)
             process_name = proc.name()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            self._clear_foreground()
             return
 
         length = user32.GetWindowTextLengthW(hwnd)
@@ -465,6 +479,7 @@ class Monitor:
             title = ""
 
         if not process_name:
+            self._clear_foreground()
             return
         if process_name == self.current_process and title == self.current_title:
             return
@@ -504,7 +519,7 @@ class Monitor:
     def _poll_loop(self) -> None:
         """Poll thread: query event log every second, push new events to queue."""
         last_poll = datetime.now()
-        while not self._stop_event.wait(1.0):
+        while not self._stop_event.wait(EVTLOG_POLL_INTERVAL_SEC):
             try:
                 now = datetime.now()
                 gap_ms = int((now - last_poll).total_seconds() * 1000) + 2000
@@ -539,9 +554,14 @@ class Monitor:
             self.dm.write_app_data(self._today, self.app_data)
             if self.is_idle:
                 self._end_idle(ts)
+            self.is_idle = True
+            self.idle_data.append({"start": ts})
+            self.dm.write_idle_data(self._today, self.idle_data)
             self.current_process = None
             self.current_title = None
         elif message in _RESUME_MESSAGES:
+            if self.is_idle:
+                self._end_idle(ts)
             self._check_day_change()
             self._capture_foreground(initial=True)
 
@@ -549,6 +569,7 @@ class Monitor:
 
     def _on_timer(self) -> None:
         self._drain_event_queue()
+        self._check_day_change()
 
         self._heartbeat_ticks += 1
         if self._heartbeat_ticks >= HEARTBEAT_TICKS:
@@ -613,6 +634,7 @@ class Monitor:
             return
 
         old_ts = self._today.strftime("%Y-%m-%d") + " 23:59:59.999"
+        was_idle = self.is_idle
         self._end_current_entry(old_ts)
         if self.is_idle:
             self._end_idle(old_ts)
@@ -625,7 +647,16 @@ class Monitor:
         self.idle_data = []
         self.current_process = None
         self.current_title = None
-        self.is_idle = False
+        self._processed_ids.clear()
+
+        if was_idle:
+            self.is_idle = True
+            new_ts = now.strftime("%Y-%m-%d") + " 00:00:00.000"
+            self.idle_data.append({"start": new_ts})
+            self.dm.write_idle_data(self._today, self.idle_data)
+        else:
+            self.is_idle = False
+
         if self._on_day_change:
             self._on_day_change(self._today)
 

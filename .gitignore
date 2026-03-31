@@ -3,4 +3,5 @@
 *.log
 *.report.json
 *.sentinel.json
+*.tmp
 __pycache__/

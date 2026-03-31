@@ -1,6 +1,8 @@
+import ctypes
 import json
 import os
 import signal
+import sys
 import threading
 import traceback
 from datetime import datetime
@@ -12,6 +14,21 @@ from server import start_server
 from tray import TrayIcon
 
 _SENTINEL = Path(__file__).parent / ".sentinel.json"
+_MUTEX_NAME = "Global\\WindowsStatisticsMonitor"
+_mutex_handle = None
+
+
+def _ensure_single_instance() -> bool:
+    """尝试获取全局 Named Mutex，成功返回 True，已有实例运行则返回 False。"""
+    global _mutex_handle
+    ERROR_ALREADY_EXISTS = 0xB7
+    kernel32 = ctypes.windll.kernel32
+    _mutex_handle = kernel32.CreateMutexW(None, False, _MUTEX_NAME)
+    if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+        kernel32.CloseHandle(_mutex_handle)
+        _mutex_handle = None
+        return False
+    return _mutex_handle is not None and _mutex_handle != 0
 
 
 def _check_crash(dm: DataManager) -> None:
@@ -22,8 +39,11 @@ def _check_crash(dm: DataManager) -> None:
     try:
         data = json.loads(_SENTINEL.read_text(encoding="utf-8"))
         date_str = data.get("date", "")
+        last_seen = data.get("last_seen", "")
         date = datetime.strptime(date_str, "%Y%m%d")
         dm.write_log("进程终止", date=date)
+        if last_seen:
+            dm.patch_unclosed_entries(date, last_seen)
     except Exception:
         pass
     _SENTINEL.unlink(missing_ok=True)
@@ -40,6 +60,10 @@ def _write_sentinel(date: datetime) -> None:
 
 
 def main() -> None:
+    if not _ensure_single_instance():
+        print("已有一个实例正在运行，退出。")
+        sys.exit(1)
+
     base_dir = Path(__file__).parent
 
     config_path = base_dir / "statistics.configuration.json"

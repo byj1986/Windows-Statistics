@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>每日统计 Header 图形方案预览</title>
+  <style>
+    :root{
+      --active:#36A2EB;
+      --idle:#FF9F40;
+      --ink:#1f2937;
+      --muted:#6b7280;
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --stroke:rgba(17,24,39,.10);
+      --shadow:0 6px 18px rgba(17,24,39,.08);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      background:var(--bg); color:var(--ink);
+    }
+    .wrap{max-width:1100px; margin:24px auto; padding:0 16px}
+    h1{font-size:18px; margin:0 0 14px 0; letter-spacing:.2px}
+    .meta{color:var(--muted); font-size:13px; margin-bottom:16px}
+    .grid{display:grid; grid-template-columns:1fr; gap:14px}
+    @media (min-width: 900px){
+      .grid{grid-template-columns:1fr 1fr}
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px 14px 12px 14px;
+    }
+    .title{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:10px}
+    .title b{font-size:14px}
+    .title span{font-size:12px; color:var(--muted)}
+    .row{display:flex; align-items:center; gap:12px; min-height:64px}
+    .kpi{
+      display:flex; gap:10px; flex-wrap:wrap;
+      font-size:12px; color:var(--muted);
+    }
+    .chip{
+      display:flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      background:#f3f4f6; border:1px solid var(--stroke);
+      white-space:nowrap;
+    }
+    .dot{width:10px; height:10px; border-radius:2px}
+    .dot.active{background:var(--active)}
+    .dot.idle{background:var(--idle)}
+
+    /* 1) Segmented pill */
+    .pill{
+      width:100%;
+      height:44px;
+      border-radius:12px;
+      overflow:hidden;
+      display:flex;
+      background:#eef2ff;
+      border:1px solid var(--stroke);
+    }
+    .seg{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#0b1220;
+      font-weight:600;
+      font-size:13px;
+      letter-spacing:.2px;
+      white-space:nowrap;
+    }
+    .seg.active{background:var(--active); color:#052033}
+    .seg.idle{background:var(--idle); color:#2a1403}
+    .seg small{font-weight:700; opacity:.9}
+
+    /* 3) Bullet */
+    .bullet{
+      width:100%;
+    }
+    .track{
+      height:14px; border-radius:999px; overflow:hidden;
+      background:#e5e7eb; border:1px solid var(--stroke);
+      position:relative;
+    }
+    .fillA{
+      position:absolute; left:0; top:0; bottom:0;
+      width:64.7%;
+      background:var(--active);
+    }
+    .fillI{
+      position:absolute; left:64.7%; top:0; bottom:0;
+      width:35.3%;
+      background:var(--idle);
+    }
+    .ticks{display:flex; justify-content:space-between; margin-top:6px; color:var(--muted); font-size:11px}
+    .mono{font-variant-numeric: tabular-nums}
+
+    /* 5) Waffle */
+    .waffle{
+      display:grid;
+      grid-template-columns:repeat(20, 1fr);
+      gap:4px;
+      width:100%;
+    }
+    .cell{
+      aspect-ratio: 1 / 1;
+      border-radius:4px;
+      border:1px solid var(--stroke);
+      background:#f3f4f6;
+    }
+    .cell.a{background:color-mix(in srgb, var(--active) 92%, white)}
+    .cell.i{background:color-mix(in srgb, var(--idle) 92%, white)}
+
+    /* Donuts */
+    .donuts{display:flex; gap:14px; align-items:center}
+    .donutLabel{font-size:12px; color:var(--muted); margin-top:6px; text-align:center}
+    svg{display:block}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Header 图形方案预览（示例数据）</h1>
+    <div class="meta mono">有效 66min（64.7%）｜闲置 36min（35.3%）｜总计 102min</div>
+
+    <div class="grid">
+
+      <!-- 1) Segmented pill -->
+      <div class="card">
+        <div class="title">
+          <b>方案 1：分段胶囊条（最像你现在的，但可内嵌文字）</b>
+          <span>一眼看占比 + 直接读时长</span>
+        </div>
+        <div class="row">
+          <div class="pill" aria-label="segmented-pill">
+            <div class="seg active" style="width:64.7%">
+              有效 <small>&nbsp;1:06</small>
+            </div>
+            <div class="seg idle" style="width:35.3%">
+              闲置 <small>&nbsp;0:36</small>
+            </div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="chip"><span class="dot active"></span>有效：1小时6分（64.7%）</div>
+          <div class="chip"><span class="dot idle"></span>闲置：0小时36分（35.3%）</div>
+        </div>
+      </div>
+
+      <!-- 2) Dual donut -->
+      <div class="card">
+        <div class="title">
+          <b>方案 2：双圆环（仪表盘感更强）</b>
+          <span>占宽小，但精确比较弱些</span>
+        </div>
+        <div class="row">
+          <div class="donuts">
+            <!-- Active donut: 64.7% -->
+            <div>
+              <svg width="86" height="86" viewBox="0 0 100 100" aria-label="active-donut">
+                <circle cx="50" cy="50" r="36" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+                <!-- circumference ~ 226.2 -->
+                <circle cx="50" cy="50" r="36" fill="none" stroke="var(--active)" stroke-width="14"
+                        stroke-linecap="butt"
+                        stroke-dasharray="146.3 226.2" transform="rotate(-90 50 50)"/>
+                <text x="50" y="54" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">64.7%</text>
+              </svg>
+              <div class="donutLabel">有效 1:06</div>
+            </div>
+
+            <!-- Idle donut: 35.3% -->
+            <div>
+              <svg width="86" height="86" viewBox="0 0 100 100" aria-label="idle-donut">
+                <circle cx="50" cy="50" r="36" fill="none" stroke="#e5e7eb" stroke-width="14"/>
+                <circle cx="50" cy="50" r="36" fill="none" stroke="var(--idle)" stroke-width="14"
+                        stroke-linecap="butt"
+                        stroke-dasharray="79.9 226.2" transform="rotate(-90 50 50)"/>
+                <text x="50" y="54" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">35.3%</text>
+              </svg>
+              <div class="donutLabel">闲置 0:36</div>
+            </div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="chip"><span class="dot active"></span>有效：64.7%</div>
+          <div class="chip"><span class="dot idle"></span>闲置：35.3%</div>
+        </div>
+      </div>
+
+      <!-- 3) Bullet -->
+      <div class="card">
+        <div class="title">
+          <b>方案 3：子弹图（极简、工业风、很“平”）</b>
+          <span>适合 header 小组件</span>
+        </div>
+        <div class="row" style="width:100%">
+          <div class="bullet">
+            <div class="track" aria-label="bullet">
+              <div class="fillA" title="有效 64.7%"></div>
+              <div class="fillI" title="闲置 35.3%"></div>
+            </div>
+            <div class="ticks mono">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="chip"><span class="dot active"></span>有效 1:06</div>
+          <div class="chip"><span class="dot idle"></span>闲置 0:36</div>
+        </div>
+      </div>
+
+      <!-- 4) KPI chips -->
+      <div class="card">
+        <div class="title">
+          <b>方案 4：两块 KPI（读数最快）</b>
+          <span>占比可用小色条点缀</span>
+        </div>
+        <div class="row" style="width:100%">
+          <div style="width:100%">
+            <div class="kpi" style="margin-bottom:10px">
+              <div class="chip" style="background:color-mix(in srgb, var(--active) 10%, white)">
+                <span class="dot active"></span><b style="color:var(--ink)">有效</b> <span class="mono">1:06</span>（64.7%）
+              </div>
+              <div class="chip" style="background:color-mix(in srgb, var(--idle) 12%, white)">
+                <span class="dot idle"></span><b style="color:var(--ink)">闲置</b> <span class="mono">0:36</span>（35.3%）
+              </div>
+            </div>
+            <div class="track" aria-label="kpi-mini-bar" style="height:10px">
+              <div class="fillA" style="width:64.7%"></div>
+              <div class="fillI" style="left:64.7%; width:35.3%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="meta mono" style="margin:0">适合你如果更想“看数”而不是“看图”。</div>
+      </div>
+
+      <!-- 5) Waffle -->
+      <div class="card">
+        <div class="title">
+          <b>方案 5：华夫微格（像素对齐天然好）</b>
+          <span>离散精度（这里 20 格）</span>
+        </div>
+        <div class="row" style="width:100%">
+          <div style="width:100%">
+            <div class="waffle" aria-label="waffle-20">
+              <!-- 20 cells: 13 active (65%), 7 idle (35%) -->
+              <div class="cell a"></div><div class="cell a"></div><div class="cell a"></div><div class="cell a"></div><div class="cell a"></div>
+              <div class="cell a"></div><div class="cell a"></div><div class="cell a"></div><div class="cell a"></div><div class="cell a"></div>
+              <div class="cell a"></div><div class="cell a"></div><div class="cell a"></div>
+              <div class="cell i"></div><div class="cell i"></div><div class="cell i"></div><div class="cell i"></div><div class="cell i"></div><div class="cell i"></div><div class="cell i"></div>
+            </div>
+            <div class="kpi" style="margin-top:10px">
+              <div class="chip"><span class="dot active"></span>有效 ≈ 13/20</div>
+              <div class="chip"><span class="dot idle"></span>闲置 ≈ 7/20</div>
+            </div>
+          </div>
+        </div>
+        <div class="meta mono" style="margin:0">20 格下 ≈ 65% / 35%，更接近 64.7% / 35.3%。</div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import threading
 from datetime import datetime
@@ -63,6 +64,19 @@ class DataManager:
     def write_app_data(self, date: datetime, data: dict) -> None:
         with self._lock:
             self._write_json(self._file_path(date, ".app.json"), data)
+
+    def patch_unclosed_entries(self, date: datetime, ended_ts: str) -> None:
+        """Fill in `ended` for any app entries that are missing it (e.g. after crash)."""
+        app_data = self.read_app_data(date)
+        patched = False
+        for info in app_data.values():
+            for entries in info.get("titles", {}).values():
+                for entry in entries:
+                    if "started" in entry and "ended" not in entry:
+                        entry["ended"] = ended_ts
+                        patched = True
+        if patched:
+            self.write_app_data(date, app_data)
 
     # ---- Idle Data ----
 
@@ -188,7 +202,9 @@ class DataManager:
             return default if default is not None else {}
 
     def _write_json(self, path: Path, data) -> None:
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(str(tmp), str(path))
 
     @staticmethod
     def _time_diff(start_str: str, end_str: str) -> float:
