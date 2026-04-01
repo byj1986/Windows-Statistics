@@ -1,773 +1,894 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>每日使用统计报告</title>
-    <link rel="icon" type="image/x-icon" href="/statistics_light.ico" media="(prefers-color-scheme: light)">
-    <link rel="icon" type="image/x-icon" href="/statistics_dark.ico" media="(prefers-color-scheme: dark)">
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="/statistics_light.ico"
+      media="(prefers-color-scheme: light)"
+    />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="/statistics_dark.ico"
+      media="(prefers-color-scheme: dark)"
+    />
     <script src="/echarts.min.js"></script>
     <style>
+      :root {
+        color-scheme: light;
+        --bg-page: #f5f5f5;
+        --bg-card: #ffffff;
+        --text-primary: #333;
+        --text-secondary: #555;
+        --text-muted: #888;
+        --text-subtle: #999;
+        --border: #ddd;
+        --border-sub: #eee;
+        --input-bg: #fff;
+        --input-border: #ddd;
+        --input-text: #555;
+        --focus-ring: #36a2eb;
+        --shadow-card: 0 2px 5px rgba(0, 0, 0, 0.05);
+        --stat-border: #ccc;
+        --summary-legend: #444;
+        --summary-legend-right: #555;
+        --app-row-bg: #f8f9fa;
+        --app-row-hover: #e9ecef;
+        --app-name: #444;
+        --toggle-icon: #999;
+        --sub-item: #666;
+        --scrollbar-thumb: #ccc;
+        --no-data-msg: #999;
+        --chart-empty: #e5e7eb;
+        --donut-center-text: #111827;
+      }
+
+      @media (prefers-color-scheme: dark) {
         :root {
-            color-scheme: light;
-            --bg-page: #f5f5f5;
-            --bg-card: #ffffff;
-            --text-primary: #333;
-            --text-secondary: #555;
-            --text-muted: #888;
-            --text-subtle: #999;
-            --border: #ddd;
-            --border-sub: #eee;
-            --input-bg: #fff;
-            --input-border: #ddd;
-            --input-text: #555;
-            --focus-ring: #36A2EB;
-            --shadow-card: 0 2px 5px rgba(0, 0, 0, 0.05);
-            --stat-border: #ccc;
-            --summary-legend: #444;
-            --summary-legend-right: #555;
-            --app-row-bg: #f8f9fa;
-            --app-row-hover: #e9ecef;
-            --app-name: #444;
-            --toggle-icon: #999;
-            --sub-item: #666;
-            --scrollbar-thumb: #ccc;
-            --no-data-msg: #999;
-            --chart-empty: #e5e7eb;
-            --donut-center-text: #111827;
+          color-scheme: dark;
+          --bg-page: #1a1a1e;
+          --bg-card: #252530;
+          --text-primary: #e8e8ed;
+          --text-secondary: #c4c4cc;
+          --text-muted: #9898a6;
+          --text-subtle: #787882;
+          --border: #3d3d48;
+          --border-sub: #3a3a44;
+          --input-bg: #2c2c36;
+          --input-border: #4a4a58;
+          --input-text: #e0e0e8;
+          --focus-ring: #5eb3f0;
+          --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+          --stat-border: #555;
+          --summary-legend: #c8c8d0;
+          --summary-legend-right: #b0b0bc;
+          --app-row-bg: #2f2f38;
+          --app-row-hover: #3a3a46;
+          --app-name: #d8d8e0;
+          --toggle-icon: #888;
+          --sub-item: #a8a8b4;
+          --scrollbar-thumb: #555;
+          --no-data-msg: #888;
+          --chart-empty: #4b5563;
+          --donut-center-text: #e5e7eb;
         }
+      }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                color-scheme: dark;
-                --bg-page: #1a1a1e;
-                --bg-card: #252530;
-                --text-primary: #e8e8ed;
-                --text-secondary: #c4c4cc;
-                --text-muted: #9898a6;
-                --text-subtle: #787882;
-                --border: #3d3d48;
-                --border-sub: #3a3a44;
-                --input-bg: #2c2c36;
-                --input-border: #4a4a58;
-                --input-text: #e0e0e8;
-                --focus-ring: #5eb3f0;
-                --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
-                --stat-border: #555;
-                --summary-legend: #c8c8d0;
-                --summary-legend-right: #b0b0bc;
-                --app-row-bg: #2f2f38;
-                --app-row-hover: #3a3a46;
-                --app-name: #d8d8e0;
-                --toggle-icon: #888;
-                --sub-item: #a8a8b4;
-                --scrollbar-thumb: #555;
-                --no-data-msg: #888;
-                --chart-empty: #4b5563;
-                --donut-center-text: #e5e7eb;
-            }
-        }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", sans-serif;
+        background: var(--bg-page);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
 
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: var(--bg-page);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
+      .dashboard-wrapper {
+        padding: 20px;
+        height: 100%;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        max-width: 1400px;
+        margin: 0 auto;
+        width: 100%;
+      }
 
-        .dashboard-wrapper {
-            padding: 20px;
-            height: 100%;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
-        }
+      .header {
+        flex: 0 0 auto;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        margin-bottom: 15px;
+        background: var(--bg-card);
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: var(--shadow-card);
+      }
 
-        .header {
-            flex: 0 0 auto;
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            margin-bottom: 15px;
-            background: var(--bg-card);
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: var(--shadow-card);
-        }
+      .header h2 {
+        margin: 0;
+        flex-shrink: 0;
+      }
 
-        .header h2 {
-            margin: 0;
-            flex-shrink: 0;
-        }
+      h2 {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 28px;
+        line-height: 1.2;
+        display: flex;
+        align-items: center;
+      }
 
-        h2 {
-            margin: 0;
-            color: var(--text-primary);
-            font-size: 28px;
-            line-height: 1.2;
-            display: flex;
-            align-items: center;
-        }
+      .daily-title-time {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-left: 8px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        align-self: flex-end;
+      }
 
-        .daily-title-time {
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-left: 8px;
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-            align-self: flex-end;
-        }
+      input[type="date"] {
+        padding: 8px 12px;
+        font-size: 16px;
+        border: 1px solid var(--input-border);
+        border-radius: 6px;
+        font-family: inherit;
+        color: var(--input-text);
+        background: var(--input-bg);
+        outline: none;
+        vertical-align: middle;
+      }
 
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        vertical-align: middle;
+        padding-left: 4px;
+      }
+
+      input[type="date"]:focus {
+        border-color: var(--focus-ring);
+      }
+
+      /* 深色：原生日历图标在部分 Chromium/Windows 上无法用 filter 反色，改用自定义 SVG + 透明指示层保留点击 */
+      @media (prefers-color-scheme: dark) {
         input[type="date"] {
-            padding: 8px 12px;
-            font-size: 16px;
-            border: 1px solid var(--input-border);
-            border-radius: 6px;
-            font-family: inherit;
-            color: var(--input-text);
-            background: var(--input-bg);
-            outline: none;
-            vertical-align: middle;
+          position: relative;
+          padding-right: 2.5rem;
+          color-scheme: dark;
+          background-color: var(--input-bg);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.6rem center;
+          background-size: 1.125rem 1.125rem;
         }
 
         input[type="date"]::-webkit-calendar-picker-indicator {
-            cursor: pointer;
-            vertical-align: middle;
-            padding-left: 4px;
+          cursor: pointer;
+          opacity: 0;
+          position: absolute;
+          right: 0;
+          top: 0;
+          width: 2.75rem;
+          height: 100%;
+          margin: 0;
+          padding: 0;
         }
+      }
 
-        input[type="date"]:focus {
-            border-color: var(--focus-ring);
-        }
+      .stats-right {
+        display: flex;
+        gap: 10px;
+      }
 
-        /* 深色：原生日历图标在部分 Chromium/Windows 上无法用 filter 反色，改用自定义 SVG + 透明指示层保留点击 */
-        @media (prefers-color-scheme: dark) {
-            input[type="date"] {
-                position: relative;
-                padding-right: 2.5rem;
-                color-scheme: dark;
-                background-color: var(--input-bg);
-                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");
-                background-repeat: no-repeat;
-                background-position: right 0.6rem center;
-                background-size: 1.125rem 1.125rem;
-            }
+      .stats-right .stat-card {
+        flex: 1;
+        min-width: 0;
+      }
 
-            input[type="date"]::-webkit-calendar-picker-indicator {
-                cursor: pointer;
-                opacity: 0;
-                position: absolute;
-                right: 0;
-                top: 0;
-                width: 2.75rem;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-        }
+      .stat-card {
+        background: var(--bg-card);
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: var(--shadow-card);
+        border-left: 10px solid var(--stat-border);
+      }
 
-        .stats-right {
-            display: flex;
-            gap: 10px;
-        }
+      .stat-card.total {
+        border-left-color: #4bc0c0;
+      }
 
-        .stats-right .stat-card {
-            flex: 1;
-            min-width: 0;
-        }
+      .stat-card.totalTime {
+        border-left-color: #b5d733;
+      }
 
-        .stat-card {
-            background: var(--bg-card);
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: var(--shadow-card);
-            border-left: 10px solid var(--stat-border);
-        }
+      .stat-card.systemRun {
+        border-left-color: #52d3d3;
+      }
 
-        .stat-card.total {
-            border-left-color: #4BC0C0;
-        }
+      .stat-card.active {
+        border-left-color: #36a2eb;
+      }
 
-        .stat-card.active {
-            border-left-color: #36A2EB;
-        }
+      .stat-card.idle {
+        border-left-color: #ff9f40;
+      }
 
-        .stat-card.idle {
-            border-left-color: #FF9F40;
-        }
+      .stat-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 3px;
+      }
 
-        .stat-value {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--text-primary);
-            margin-bottom: 3px;
-        }
+      .stat-label {
+        font-size: 14px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
 
-        .stat-label {
-            font-size: 14px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+      .content-area {
+        flex: 1;
+        display: flex;
+        gap: 10px;
+        min-height: 0;
+        height: calc(100% - 50px);
+      }
 
-        .content-area {
-            flex: 1;
-            display: flex;
-            gap: 10px;
-            min-height: 0;
-            height: calc(100% - 50px);
-        }
+      .chart-box {
+        flex: 4;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        height: 100%;
+      }
 
-        .chart-box {
-            flex: 4;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 100%;
-        }
+      .chart-wrapper {
+        background: var(--bg-card);
+        border-radius: 8px;
+        padding: 15px;
+        min-height: 320px;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        position: relative;
+        height: 100%;
+        margin-top: 12px;
+      }
 
-        .chart-wrapper {
-            background: var(--bg-card);
-            border-radius: 8px;
-            padding: 15px;
-            min-height: 320px;
-            box-shadow: var(--shadow-card);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            height: 100%;
-            margin-top: 12px;
-        }
+      #usagePieChart {
+        width: 100%;
+        height: min(560px, 62vh);
+      }
 
-        #summaryBarWrap {
-            flex: 1;
-            min-width: 0;
-            height: 56px;
-            align-self: center;
-            width: 100%;
-            border-radius: 12px;
-            overflow: hidden;
-            box-sizing: border-box;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 0 12px;
-            background: transparent;
-            box-shadow: none;
-            margin-left: auto;
-            justify-content: flex-end;
-        }
+      #summaryBarWrap {
+        flex: 1;
+        min-width: 0;
+        height: 56px;
+        align-self: center;
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 12px;
+        background: transparent;
+        box-shadow: none;
+        margin-left: auto;
+        justify-content: flex-end;
+      }
 
-        #summaryDonutLegend {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 0;
-            font-size: 14px;
-            color: var(--summary-legend);
-        }
+      #summaryDonutLegend {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        font-size: 14px;
+        color: var(--summary-legend);
+      }
 
-        .summary-legend-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            min-width: 0;
-        }
+      .summary-legend-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-width: 0;
+      }
 
-        .summary-legend-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+      .summary-legend-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
 
-        .summary-legend-swatch {
-            width: 14px;
-            height: 14px;
-            border-radius: 4px;
-            flex: 0 0 auto;
-        }
+      .summary-legend-swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        flex: 0 0 auto;
+      }
 
-        .summary-legend-right {
-            flex: 1;
-            min-width: 0;
-            text-align: right;
-            color: var(--summary-legend-right);
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-        }
+      .summary-legend-right {
+        flex: 1;
+        min-width: 0;
+        text-align: right;
+        color: var(--summary-legend-right);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
 
-        #datePicker {
-            flex-shrink: 0;
-            margin-left: 12px;
-        }
+      #datePicker {
+        flex-shrink: 0;
+        margin-left: 12px;
+      }
 
-        .details-box {
-            flex: 6;
-        }
+      .details-box {
+        flex: 6;
+      }
 
-        .details-list {
-            margin-top: 12px;
-            padding: 1rem;
-            border-radius: 8px;
-            background: var(--bg-card);
-            overflow-y: auto;
-            box-shadow: var(--shadow-card);
-            height: calc(100% - 148px);
-        }
+      .details-list {
+        margin-top: 12px;
+        padding: 1rem;
+        border-radius: 8px;
+        background: var(--bg-card);
+        overflow-y: auto;
+        box-shadow: var(--shadow-card);
+        height: calc(100% - 148px);
+      }
 
-        ul {
-            list-style: none;
-            padding-left: 0;
-            margin: 0;
-        }
+      ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+      }
 
-        li {
-            margin-bottom: 8px;
-        }
+      li {
+        margin-bottom: 8px;
+      }
 
-        .app-row {
-            cursor: pointer;
-            padding: 10px 15px;
-            background: var(--app-row-bg);
-            display: flex;
-            justify-content: space-between;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: background 0.2s;
-            color: var(--text-primary);
-        }
+      .app-row {
+        cursor: pointer;
+        padding: 10px 15px;
+        background: var(--app-row-bg);
+        display: flex;
+        justify-content: space-between;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: background 0.2s;
+        color: var(--text-primary);
+      }
 
-        .app-row:hover {
-            background: var(--app-row-hover);
-        }
+      .app-row:hover {
+        background: var(--app-row-hover);
+      }
 
-        .app-name {
-            font-weight: 600;
-            color: var(--app-name);
-        }
+      .app-name {
+        font-weight: 600;
+        color: var(--app-name);
+      }
 
+      .app-row-duration {
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+        margin-left: 8px;
+      }
+
+      @media (prefers-color-scheme: dark) {
         .app-row-duration {
-            color: var(--text-primary);
-            font-variant-numeric: tabular-nums;
-            flex-shrink: 0;
-            margin-left: 8px;
+          color: #ffffff;
         }
+      }
 
-        @media (prefers-color-scheme: dark) {
-            .app-row-duration {
-                color: #ffffff;
-            }
-        }
+      .toggle-icon {
+        margin-right: 8px;
+        font-weight: bold;
+        color: var(--toggle-icon);
+        display: inline-block;
+        width: 16px;
+        text-align: center;
+      }
 
-        .toggle-icon {
-            margin-right: 8px;
-            font-weight: bold;
-            color: var(--toggle-icon);
-            display: inline-block;
-            width: 16px;
-            text-align: center;
-        }
+      .sub-list {
+        padding-left: 35px;
+        display: none;
+        margin-top: 5px;
+        border-left: 2px solid var(--border-sub);
+        margin-left: 10px;
+      }
 
-        .sub-list {
-            padding-left: 35px;
-            display: none;
-            margin-top: 5px;
-            border-left: 2px solid var(--border-sub);
-            margin-left: 10px;
-        }
+      .sub-item {
+        font-size: 13px;
+        color: var(--sub-item);
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px dashed var(--border-sub);
+      }
 
-        .sub-item {
-            font-size: 13px;
-            color: var(--sub-item);
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px dashed var(--border-sub);
-        }
+      .active .sub-list {
+        display: block;
+      }
 
-        .active .sub-list {
-            display: block;
-        }
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
 
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
 
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
+      ::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb);
+        border-radius: 4px;
+      }
 
-        ::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
-            border-radius: 4px;
-        }
-
-        .no-data-msg {
-            text-align: center;
-            color: var(--no-data-msg);
-            margin-top: 50px;
-        }
+      .no-data-msg {
+        text-align: center;
+        color: var(--no-data-msg);
+        margin-top: 50px;
+      }
     </style>
-</head>
+  </head>
 
-<body>
-
+  <body>
     <div class="dashboard-wrapper">
-        <div class="header">
-            <h2 id="dailyTitle">每日统计</h2>
-            <div id="summaryBarWrap">
-                <div id="summaryDonutChart" style="width:56px;height:56px;flex:0 0 auto;"></div>
-                <div id="summaryDonutLegend"></div>
-            </div>
-            <input type="date" id="datePicker" onchange="onDateChange(this.value)">
+      <div class="header">
+        <h2 id="dailyTitle">每日统计</h2>
+        <div id="summaryBarWrap">
+          <div
+            id="summaryDonutChart"
+            style="width: 56px; height: 56px; flex: 0 0 auto"
+          ></div>
+          <div id="summaryDonutLegend"></div>
         </div>
+        <input
+          type="date"
+          id="datePicker"
+          onchange="onDateChange(this.value)"
+        />
+      </div>
 
-        <div class="content-area">
-            <div class="chart-box">
-                <div class="stat-card total">
-                    <div class="stat-value" id="totalUsed">-</div>
-                    <div class="stat-label">系统运行时长</div>
-                </div>
-
-                <div class="chart-wrapper">
-                    <div id="usagePieChart" style="width:100%;height:100%;"></div>
-                </div>
+      <div class="content-area">
+        <div class="details-box">
+          <div class="stats-right">
+            <div class="stat-card totalTime">
+              <div class="stat-value" id="totalTime">-</div>
+              <div class="stat-label">总时间</div>
             </div>
-            <div class="details-box">
-                <div class="stats-right">
-                    <div class="stat-card active">
-                        <div class="stat-value" id="effectiveTime">-</div>
-                        <div class="stat-label">有效使用时间</div>
-                    </div>
-                    <div class="stat-card idle">
-                        <div class="stat-value" id="idleTime">-</div>
-                        <div class="stat-label">闲置时长</div>
-                    </div>
-                </div>
-                <ul class="details-list" id="detailsList"></ul>
-                <div id="noDataMsg" class="no-data-msg" style="display:none;">
-                    所选日期无数据
-                </div>
-            </div>
+          </div>
+          <ul class="details-list" id="detailsList"></ul>
+          <div id="noDataMsg" class="no-data-msg" style="display: none">
+            所选日期无数据
+          </div>
         </div>
+        <div class="chart-box">
+          <div class="stat-card systemRun">
+            <div class="stat-value" id="totalUsed">-</div>
+            <div class="stat-label">系统运行时长</div>
+          </div>
+
+          <div class="chart-wrapper">
+            <div id="usagePieChart"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        let usageChart = null;
-        let summaryBarChart = null;
-        let lastDailyChartState = null;
+      let usageChart = null;
+      let summaryBarChart = null;
+      let lastDailyChartState = null;
 
-        function resolvedDark() {
-            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      function resolvedDark() {
+        return window.matchMedia("(prefers-color-scheme: dark)").matches;
+      }
+
+      function getChartTextColor() {
+        return resolvedDark() ? "#e5e7eb" : "#333333";
+      }
+
+      function getTooltipTheme() {
+        if (resolvedDark()) {
+          return {
+            backgroundColor: "#374151",
+            borderColor: "#4b5563",
+            textStyle: { color: "#f3f4f6" },
+          };
         }
+        return {
+          backgroundColor: "#ffffff",
+          borderColor: "#e5e7eb",
+          textStyle: { color: "#333333" },
+        };
+      }
 
-        function getChartTextColor() {
-            return resolvedDark() ? '#e5e7eb' : '#333333';
-        }
+      function getDonutCenterFill() {
+        return resolvedDark() ? "#e5e7eb" : "#111827";
+      }
 
-        function getTooltipTheme() {
-            if (resolvedDark()) {
-                return {
-                    backgroundColor: '#374151',
-                    borderColor: '#4b5563',
-                    textStyle: { color: '#f3f4f6' }
-                };
-            }
-            return {
-                backgroundColor: '#ffffff',
-                borderColor: '#e5e7eb',
-                textStyle: { color: '#333333' }
-            };
-        }
+      function getChartEmptyColor() {
+        return resolvedDark() ? "#4b5563" : "#e5e7eb";
+      }
 
-        function getDonutCenterFill() {
-            return resolvedDark() ? '#e5e7eb' : '#111827';
-        }
+      function refreshDailyChartsIfCached() {
+        if (!lastDailyChartState) return;
+        renderCharts(
+          lastDailyChartState.active,
+          lastDailyChartState.idle,
+          lastDailyChartState.appsArray,
+        );
+      }
 
-        function getChartEmptyColor() {
-            return resolvedDark() ? '#4b5563' : '#e5e7eb';
-        }
-
-        function refreshDailyChartsIfCached() {
-            if (!lastDailyChartState) return;
-            renderCharts(lastDailyChartState.active, lastDailyChartState.idle, lastDailyChartState.appsArray);
-        }
-
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
-            refreshDailyChartsIfCached();
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", function () {
+          refreshDailyChartsIfCached();
         });
 
-        function secondsToMinutes(sec) { return (sec / 60).toFixed(1) + ' 分钟'; }
-        function formatPrettyTime(seconds) {
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            return `${h}小时 ${m}分`;
-        }
-        function secondsToHMS(d) {
-            d = Number(d);
-            var h = Math.floor(d / 3600);
-            var m = Math.floor(d % 3600 / 60);
-            var s = Math.floor(d % 3600 % 60);
-            return (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s;
-        }
+      function secondsToMinutes(sec) {
+        return (sec / 60).toFixed(1) + " 分钟";
+      }
+      function formatPrettyTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        return `${h}小时 ${m}分`;
+      }
+      function secondsToHMS(d) {
+        d = Number(d);
+        var h = Math.floor(d / 3600);
+        var m = Math.floor((d % 3600) / 60);
+        var s = Math.floor((d % 3600) % 60);
+        return (
+          (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") +
+          m +
+          ":" +
+          (s < 10 ? "0" : "") +
+          s
+        );
+      }
 
-        function secondsToHM(d) {
-            d = Math.max(0, Math.floor(Number(d) || 0));
-            var h = Math.floor(d / 3600);
-            var m = Math.floor((d % 3600) / 60);
-            return h + ":" + (m < 10 ? "0" : "") + m;
-        }
+      function secondsToHM(d) {
+        d = Math.max(0, Math.floor(Number(d) || 0));
+        var h = Math.floor(d / 3600);
+        var m = Math.floor((d % 3600) / 60);
+        return h + ":" + (m < 10 ? "0" : "") + m;
+      }
 
-        function toDashDate(str) {
-            return str.replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
-        }
-        function toPlainDate(str) {
-            return str.replace(/-/g, "");
-        }
+      function toDashDate(str) {
+        return str.replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
+      }
+      function toPlainDate(str) {
+        return str.replace(/-/g, "");
+      }
 
-        fetch('/api/dates')
-            .then(r => r.json())
-            .then(dates => {
-                const picker = document.getElementById('datePicker');
-                if (dates.length > 0) {
-                    const maxDate = toDashDate(dates[0]);
-                    const minDate = toDashDate(dates[dates.length - 1]);
-                    picker.max = maxDate;
-                    picker.min = minDate;
-                    picker.value = maxDate;
-                    loadReport(dates[0]);
-                }
-            });
+      fetch("/api/dates")
+        .then((r) => r.json())
+        .then((dates) => {
+          const picker = document.getElementById("datePicker");
+          if (dates.length > 0) {
+            const maxDate = toDashDate(dates[0]);
+            const minDate = toDashDate(dates[dates.length - 1]);
+            picker.max = maxDate;
+            picker.min = minDate;
+            picker.value = maxDate;
+            loadReport(dates[0]);
+          }
+        });
 
-        function onDateChange(dateStr) {
-            if (!dateStr) return;
-            loadReport(toPlainDate(dateStr));
-        }
+      function onDateChange(dateStr) {
+        if (!dateStr) return;
+        loadReport(toPlainDate(dateStr));
+      }
 
-        function loadReport(date) {
-            fetch(`/api/data/${date}`)
-                .then(r => {
-                    if (!r.ok) throw new Error("No Data");
-                    return r.json();
-                })
-                .then(data => {
-                    if (!data.sessions || data.sessions.length === 0) {
-                        document.getElementById('noDataMsg').style.display = 'block';
-                        document.querySelector('.content-area').style.display = 'none';
-                        clearDashboard();
-                        return;
-                    }
-                    document.getElementById('noDataMsg').style.display = 'none';
-                    document.querySelector('.content-area').style.display = 'flex';
-                    document.getElementById('detailsList').style.display = 'block';
-                    renderDashboard(data);
-                })
-                .catch(() => {
-                    document.getElementById('noDataMsg').style.display = 'block';
-                    document.querySelector('.content-area').style.display = 'none';
-                    clearDashboard();
-                });
-        }
-
-        function clearDashboard() {
-            lastDailyChartState = null;
-            document.getElementById('totalUsed').innerText = '-';
-            document.getElementById('effectiveTime').innerText = '-';
-            document.getElementById('idleTime').innerText = '-';
-            document.getElementById('dailyTitle').innerText = '每日统计';
-            if (usageChart) { usageChart.clear(); }
-            if (summaryBarChart) { summaryBarChart.clear(); }
-        }
-
-        function renderDashboard(data) {
-            const sessions = data.sessions || [];
-            let totalRunSeconds = 0;
-            let loginTimeStr = '';
-            let logoutTimeStr = '';
-
-            const picker = document.getElementById('datePicker');
-            const selectedDate = picker ? picker.value : null;
-            const today = new Date().toISOString().split('T')[0];
-            const isToday = selectedDate === today;
-
-            if (sessions.length > 0) {
-                const firstSession = sessions[0];
-                if (firstSession && firstSession.length >= 1) {
-                    let loginTime = firstSession[0];
-                    if (typeof loginTime === 'string') {
-                        const parts = loginTime.split(' ');
-                        loginTimeStr = parts.length > 1 ? parts[1] : loginTime;
-                        loginTimeStr = loginTimeStr.split('.')[0];
-                    } else {
-                        loginTimeStr = new Date(loginTime * 1000).toLocaleTimeString('zh-CN', { hour12: false });
-                    }
-                }
-                const lastSession = sessions[sessions.length - 1];
-                if (lastSession && lastSession.length >= 2) {
-                    let logoutTime = lastSession[1];
-                    if (typeof logoutTime === 'string') {
-                        const parts = logoutTime.split(' ');
-                        logoutTimeStr = parts.length > 1 ? parts[1] : logoutTime;
-                        logoutTimeStr = logoutTimeStr.split('.')[0];
-                    } else {
-                        logoutTimeStr = new Date(logoutTime * 1000).toLocaleTimeString('zh-CN', { hour12: false });
-                    }
-                }
+      function loadReport(date) {
+        fetch(`/api/data/${date}`)
+          .then((r) => {
+            if (!r.ok) throw new Error("No Data");
+            return r.json();
+          })
+          .then((data) => {
+            if (!data.sessions || data.sessions.length === 0) {
+              document.getElementById("noDataMsg").style.display = "block";
+              document.querySelector(".content-area").style.display = "none";
+              clearDashboard();
+              return;
             }
+            document.getElementById("noDataMsg").style.display = "none";
+            document.querySelector(".content-area").style.display = "flex";
+            document.getElementById("detailsList").style.display = "block";
+            renderDashboard(data);
+          })
+          .catch(() => {
+            document.getElementById("noDataMsg").style.display = "block";
+            document.querySelector(".content-area").style.display = "none";
+            clearDashboard();
+          });
+      }
 
-            let titleText = '每日统计';
-            const dailyTitleEl = document.getElementById('dailyTitle');
-            dailyTitleEl.textContent = titleText;
-            if (loginTimeStr) {
-                let timeText = `(${loginTimeStr} -`;
-                if (logoutTimeStr && !isToday) {
-                    timeText += ` ${logoutTimeStr})`;
-                }
-                const timeSpan = document.createElement('span');
-                timeSpan.className = 'daily-title-time';
-                timeSpan.textContent = timeText;
-                dailyTitleEl.appendChild(timeSpan);
-            }
+      function clearDashboard() {
+        lastDailyChartState = null;
+        document.getElementById("totalUsed").innerText = "-";
+        document.getElementById("totalTime").innerText = "-";
+        document.getElementById("dailyTitle").innerText = "每日统计";
+        if (usageChart) {
+          usageChart.clear();
+        }
+        if (summaryBarChart) {
+          summaryBarChart.clear();
+        }
+      }
 
-            if (sessions.length > 0) {
-                totalRunSeconds = sessions.reduce((acc, curr) => {
-                    let start, end;
-                    if (typeof curr[0] === 'string') {
-                        start = new Date(curr[0].replace(' ', 'T')).getTime() / 1000;
-                        end = new Date(curr[1].replace(' ', 'T')).getTime() / 1000;
-                    } else {
-                        start = curr[0];
-                        end = curr[1];
-                    }
-                    return acc + (end - start);
-                }, 0);
-            }
+      function renderDashboard(data) {
+        const sessions = data.sessions || [];
+        let totalRunSeconds = 0;
+        let loginTimeStr = "";
+        let logoutTimeStr = "";
+        let firstLoginSeconds = null;
+        let lastLogoutSeconds = null;
 
-            const idleSeconds = data.idle_seconds || 0;
-            let effectiveSeconds = Math.max(0, totalRunSeconds - idleSeconds);
+        const picker = document.getElementById("datePicker");
+        const selectedDate = picker ? picker.value : null;
+        const today = new Date().toISOString().split("T")[0];
+        const isToday = selectedDate === today;
 
-            document.getElementById('totalUsed').innerText = formatPrettyTime(totalRunSeconds);
-            document.getElementById('effectiveTime').innerText = formatPrettyTime(effectiveSeconds);
-            document.getElementById('idleTime').innerText = formatPrettyTime(idleSeconds);
-
-            const appsObj = data.apps || {};
-            let appsArray = Object.keys(appsObj).map(exeName => {
-                const appData = appsObj[exeName];
-                const titlesArray = Object.entries(appData.titles).map(([title, time]) => ({
-                    title, time
-                })).sort((a, b) => b.time - a.time);
-                return { name: exeName, total: appData.total, titles: titlesArray };
-            });
-            appsArray.sort((a, b) => b.total - a.total);
-
-            const list = document.getElementById('detailsList');
-            list.innerHTML = '';
-            appsArray.forEach(app => {
-                const li = document.createElement('li');
-                const row = document.createElement('div');
-                row.className = 'app-row';
-                row.innerHTML = `<span class="app-name"><span class="toggle-icon">+</span> ${app.name}</span><span class="app-row-duration">${secondsToMinutes(app.total)}</span>`;
-                row.onclick = () => {
-                    li.classList.toggle('active');
-                    row.querySelector('.toggle-icon').innerText = li.classList.contains('active') ? '-' : '+';
-                };
-                const subDiv = document.createElement('div');
-                subDiv.className = 'sub-list';
-                app.titles.forEach(t => {
-                    const item = document.createElement('div');
-                    item.className = 'sub-item';
-                    const cleanTitle = t.title.length > 50 ? t.title.substring(0, 50) + '...' : t.title;
-                    item.innerHTML = `<span title="${t.title}">${cleanTitle}</span> <span>${secondsToHMS(t.time)}</span>`;
-                    subDiv.appendChild(item);
-                });
-                li.appendChild(row);
-                li.appendChild(subDiv);
-                list.appendChild(li);
-            });
-
-            renderCharts(effectiveSeconds, idleSeconds, appsArray);
+        function toSeconds(v) {
+          if (v == null) return null;
+          if (typeof v === "number" && Number.isFinite(v)) return v;
+          if (typeof v === "string") {
+            const ms = new Date(v.replace(" ", "T")).getTime();
+            if (!Number.isFinite(ms)) return null;
+            return ms / 1000;
+          }
+          return null;
         }
 
-        function renderCharts(active, idle, appsArray) {
-            lastDailyChartState = { active: active, idle: idle, appsArray: appsArray };
-            const pieColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#76A346', '#F28A8A', '#6B5B95'];
-            const tt = getTooltipTheme();
-            const legendColor = getChartTextColor();
+        if (sessions.length > 0) {
+          const firstSession = sessions[0];
+          if (firstSession && firstSession.length >= 1) {
+            let loginTime = firstSession[0];
+            firstLoginSeconds = toSeconds(loginTime);
+            if (typeof loginTime === "string") {
+              const parts = loginTime.split(" ");
+              loginTimeStr = parts.length > 1 ? parts[1] : loginTime;
+              loginTimeStr = loginTimeStr.split(".")[0];
+            } else {
+              loginTimeStr = new Date(loginTime * 1000).toLocaleTimeString(
+                "zh-CN",
+                { hour12: false },
+              );
+            }
+          }
+          const lastSession = sessions[sessions.length - 1];
+          if (lastSession && lastSession.length >= 2) {
+            let logoutTime = lastSession[1];
+            lastLogoutSeconds = toSeconds(logoutTime);
+            if (typeof logoutTime === "string") {
+              const parts = logoutTime.split(" ");
+              logoutTimeStr = parts.length > 1 ? parts[1] : logoutTime;
+              logoutTimeStr = logoutTimeStr.split(".")[0];
+            } else {
+              logoutTimeStr = new Date(logoutTime * 1000).toLocaleTimeString(
+                "zh-CN",
+                { hour12: false },
+              );
+            }
+          }
+        }
 
-            // --- Doughnut chart ---
-            const pieContainer = document.getElementById('usagePieChart');
-            if (!usageChart) {
-                usageChart = echarts.init(pieContainer);
+        let titleText = "每日统计";
+        const dailyTitleEl = document.getElementById("dailyTitle");
+        dailyTitleEl.textContent = titleText;
+        if (loginTimeStr) {
+          let timeText = `(${loginTimeStr} -`;
+          if (logoutTimeStr && !isToday) {
+            timeText += ` ${logoutTimeStr})`;
+          }
+          const timeSpan = document.createElement("span");
+          timeSpan.className = "daily-title-time";
+          timeSpan.textContent = timeText;
+          dailyTitleEl.appendChild(timeSpan);
+        }
+
+        if (sessions.length > 0) {
+          totalRunSeconds = sessions.reduce((acc, curr) => {
+            let start, end;
+            if (typeof curr[0] === "string") {
+              start = new Date(curr[0].replace(" ", "T")).getTime() / 1000;
+              end = new Date(curr[1].replace(" ", "T")).getTime() / 1000;
+            } else {
+              start = curr[0];
+              end = curr[1];
             }
-            const topN = 8;
-            let displayData = appsArray.slice(0, topN).map(a => ({ name: a.name, value: a.total }));
-            if (appsArray.length > topN) {
-                displayData.push({ name: '其他应用', value: appsArray.slice(topN).reduce((acc, c) => acc + c.total, 0) });
-            }
-            usageChart.setOption({
-                tooltip: {
-                    trigger: 'item',
-                    ...tt,
-                    formatter: function (params) {
-                        return `${params.name}: ${secondsToMinutes(params.value)} (${params.percent}%)`;
-                    }
+            return acc + (end - start);
+          }, 0);
+        }
+
+        const idleSeconds = data.idle_seconds || 0;
+        let effectiveSeconds = Math.max(0, totalRunSeconds - idleSeconds);
+
+        const nowSeconds = Date.now() / 1000;
+        let endSeconds =
+          lastLogoutSeconds != null ? lastLogoutSeconds : nowSeconds;
+        if (!Number.isFinite(endSeconds)) endSeconds = nowSeconds;
+        if (firstLoginSeconds == null || !Number.isFinite(firstLoginSeconds)) {
+          document.getElementById("totalTime").innerText = "-";
+        } else {
+          if (
+            isToday &&
+            (!lastLogoutSeconds || !Number.isFinite(lastLogoutSeconds))
+          ) {
+            endSeconds = nowSeconds;
+          }
+          const totalSpanSeconds = Math.max(
+            0,
+            Math.floor(endSeconds - firstLoginSeconds),
+          );
+          document.getElementById("totalTime").innerText =
+            formatPrettyTime(totalSpanSeconds);
+        }
+
+        document.getElementById("totalUsed").innerText =
+          formatPrettyTime(totalRunSeconds);
+
+        const appsObj = data.apps || {};
+        let appsArray = Object.keys(appsObj).map((exeName) => {
+          const appData = appsObj[exeName];
+          const titlesArray = Object.entries(appData.titles)
+            .map(([title, time]) => ({
+              title,
+              time,
+            }))
+            .sort((a, b) => b.time - a.time);
+          return { name: exeName, total: appData.total, titles: titlesArray };
+        });
+        appsArray.sort((a, b) => b.total - a.total);
+
+        const list = document.getElementById("detailsList");
+        list.innerHTML = "";
+        appsArray.forEach((app) => {
+          const li = document.createElement("li");
+          const row = document.createElement("div");
+          row.className = "app-row";
+          row.innerHTML = `<span class="app-name"><span class="toggle-icon">+</span> ${app.name}</span><span class="app-row-duration">${secondsToMinutes(app.total)}</span>`;
+          row.onclick = () => {
+            li.classList.toggle("active");
+            row.querySelector(".toggle-icon").innerText = li.classList.contains(
+              "active",
+            )
+              ? "-"
+              : "+";
+          };
+          const subDiv = document.createElement("div");
+          subDiv.className = "sub-list";
+          app.titles.forEach((t) => {
+            const item = document.createElement("div");
+            item.className = "sub-item";
+            const cleanTitle =
+              t.title.length > 50 ? t.title.substring(0, 50) + "..." : t.title;
+            item.innerHTML = `<span title="${t.title}">${cleanTitle}</span> <span>${secondsToHMS(t.time)}</span>`;
+            subDiv.appendChild(item);
+          });
+          li.appendChild(row);
+          li.appendChild(subDiv);
+          list.appendChild(li);
+        });
+
+        renderCharts(effectiveSeconds, idleSeconds, appsArray);
+      }
+
+      function renderCharts(active, idle, appsArray) {
+        lastDailyChartState = {
+          active: active,
+          idle: idle,
+          appsArray: appsArray,
+        };
+        const pieColors = [
+          "#FF6384",
+          "#36A2EB",
+          "#FFCE56",
+          "#4BC0C0",
+          "#9966FF",
+          "#FF9F40",
+          "#E7E9ED",
+          "#76A346",
+          "#F28A8A",
+          "#6B5B95",
+        ];
+        const tt = getTooltipTheme();
+        const legendColor = getChartTextColor();
+
+        // --- Doughnut chart ---
+        const pieContainer = document.getElementById("usagePieChart");
+        if (!usageChart) {
+          usageChart = echarts.init(pieContainer);
+        }
+        const topN = 8;
+        let displayData = appsArray
+          .slice(0, topN)
+          .map((a) => ({ name: a.name, value: a.total }));
+        if (appsArray.length > topN) {
+          displayData.push({
+            name: "其他应用",
+            value: appsArray.slice(topN).reduce((acc, c) => acc + c.total, 0),
+          });
+        }
+        usageChart.setOption(
+          {
+            tooltip: {
+              trigger: "item",
+              ...tt,
+              formatter: function (params) {
+                return `${params.name}: ${secondsToMinutes(params.value)} (${params.percent}%)`;
+              },
+            },
+            legend: {
+              orient: "horizontal",
+              bottom: 0,
+              textStyle: {
+                fontSize: 14,
+                fontWeight: "bold",
+                color: legendColor,
+              },
+              itemWidth: 20,
+              itemHeight: 20,
+              padding: [15, 0, 0, 0],
+            },
+            series: [
+              {
+                type: "pie",
+                radius: ["35%", "65%"],
+                center: ["50%", "45%"],
+                data: displayData,
+                color: pieColors,
+                label: { show: false },
+                emphasis: {
+                  itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" },
                 },
-                legend: {
-                    orient: 'horizontal',
-                    bottom: 0,
-                    textStyle: { fontSize: 14, fontWeight: 'bold', color: legendColor },
-                    itemWidth: 20,
-                    itemHeight: 20,
-                    padding: [15, 0, 0, 0]
-                },
-                series: [{
-                    type: 'pie',
-                    radius: ['35%', '65%'],
-                    center: ['50%', '45%'],
-                    data: displayData,
-                    color: pieColors,
-                    label: { show: false },
-                    emphasis: {
-                        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' }
-                    }
-                }]
-            }, true);
+              },
+            ],
+          },
+          true,
+        );
 
-            // --- Summary donut (active/idle) ---
-            const donutContainer = document.getElementById('summaryDonutChart');
-            if (!summaryBarChart) {
-                summaryBarChart = echarts.init(donutContainer, null, { renderer: 'svg' });
-            }
+        // --- Summary donut (active/idle) ---
+        const donutContainer = document.getElementById("summaryDonutChart");
+        if (!summaryBarChart) {
+          summaryBarChart = echarts.init(donutContainer, null, {
+            renderer: "svg",
+          });
+        }
 
-            const total = active + idle;
-            const activePercent = total > 0 ? (active / total * 100) : 0;
-            const idlePercent = total > 0 ? (idle / total * 100) : 0;
-            const totalHM = secondsToHM(total);
+        const total = active + idle;
+        const activePercent = total > 0 ? (active / total) * 100 : 0;
+        const idlePercent = total > 0 ? (idle / total) * 100 : 0;
+        const totalHM = secondsToHM(total);
 
-            const legend = document.getElementById('summaryDonutLegend');
-            const activeValue = `${activePercent.toFixed(1)}%（${secondsToHM(active)}）`;
-            const idleValue = `${idlePercent.toFixed(1)}%（${secondsToHM(idle)}）`;
-            legend.innerHTML = `
+        const legend = document.getElementById("summaryDonutLegend");
+        const activeValue = `${activePercent.toFixed(1)}%（${secondsToHM(active)}）`;
+        const idleValue = `${idlePercent.toFixed(1)}%（${secondsToHM(idle)}）`;
+        legend.innerHTML = `
                 <div class="summary-legend-row">
                     <div class="summary-legend-left">
-                        <span class="summary-legend-swatch" style="background:#36A2EB"></span>
+                        <span class="summary-legend-swatch" style="background:#5170de"></span>
                         <span>有效：</span>
                     </div>
                     <div class="summary-legend-right">${activeValue}</div>
@@ -781,54 +902,65 @@
                 </div>
             `;
 
-            const emptyColor = getChartEmptyColor();
-            const donutData = total > 0
-                ? [
-                    { name: '有效', value: active, itemStyle: { color: '#36A2EB' } },
-                    { name: '闲置', value: idle, itemStyle: { color: '#FF9F40' } },
-                ]
-                : [{ name: '无数据', value: 1, itemStyle: { color: emptyColor } }];
+        const emptyColor = getChartEmptyColor();
+        const donutData =
+          total > 0
+            ? [
+                {
+                  name: "有效",
+                  value: active,
+                  itemStyle: { color: "#5170de" },
+                },
+                { name: "闲置", value: idle, itemStyle: { color: "#FF9F40" } },
+              ]
+            : [{ name: "无数据", value: 1, itemStyle: { color: emptyColor } }];
 
-            summaryBarChart.setOption({
-                animation: false,
-                tooltip: { show: false },
-                series: [{
-                    name: '有效/闲置',
-                    type: 'pie',
-                    radius: ['68%', '100%'],
-                    center: ['50%', '50%'],
-                    clockwise: true,
-                    avoidLabelOverlap: true,
-                    label: { show: false },
-                    labelLine: { show: false },
-                    silent: true,
-                    data: donutData,
-                }]
-            }, true);
+        summaryBarChart.setOption(
+          {
+            animation: false,
+            tooltip: { show: false },
+            series: [
+              {
+                name: "有效/闲置",
+                type: "pie",
+                radius: ["68%", "100%"],
+                center: ["50%", "50%"],
+                clockwise: true,
+                avoidLabelOverlap: true,
+                label: { show: false },
+                labelLine: { show: false },
+                silent: true,
+                data: donutData,
+              },
+            ],
+          },
+          true,
+        );
 
-            summaryBarChart.setOption({
-                graphic: [{
-                    type: 'text',
-                    left: 'center',
-                    top: 'middle',
-                    style: {
-                        text: totalHM,
-                        fill: getDonutCenterFill(),
-                        fontSize: 14,
-                        fontWeight: 700,
-                        fontFamily: 'Segoe UI, sans-serif',
-                        align: 'center',
-                        verticalAlign: 'middle',
-                    }
-                }]
-            });
-        }
-
-        window.addEventListener('resize', function () {
-            if (usageChart) usageChart.resize();
-            if (summaryBarChart) summaryBarChart.resize();
+        summaryBarChart.setOption({
+          graphic: [
+            {
+              type: "text",
+              left: "center",
+              top: "middle",
+              style: {
+                text: totalHM,
+                fill: getDonutCenterFill(),
+                fontSize: 14,
+                fontWeight: 700,
+                fontFamily: "Segoe UI, sans-serif",
+                align: "center",
+                verticalAlign: "middle",
+              },
+            },
+          ],
         });
-    </script>
-</body>
+      }
 
+      window.addEventListener("resize", function () {
+        if (usageChart) usageChart.resize();
+        if (summaryBarChart) summaryBarChart.resize();
+      });
+    </script>
+  </body>
 </html>
