@@ -12,17 +12,40 @@ from data_manager import DataManager
 from monitor import Monitor, sync_today_events
 from server import start_server
 from tray import TrayIcon
+from utils.windows_theme import is_windows_app_light_theme
 
 _SENTINEL: Path | None = None
 _MUTEX_NAME = "Global\\WindowsStatisticsMonitor"
 _mutex_handle = None
 
 
-def _get_base_dir() -> Path:
-    # PyInstaller: frozen apps should use the exe directory for writable app data.
+def _get_app_dir() -> Path:
+    """可写数据（哨兵、日志、配置）所在目录：与 exe 同级。"""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
+
+
+def _get_bundle_dir() -> Path:
+    """打包资源（html、ico、js 等）目录。PyInstaller 6+ onedir 通常在 _internal，由 _MEIPASS 指向。"""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
+
+
+def _resolve_tray_icon_path(resource_dir: Path) -> Path:
+    light = resource_dir / "statistics_light.ico"
+    dark = resource_dir / "statistics_dark.ico"
+    legacy = resource_dir / "statistics.ico"
+    preferred = light if is_windows_app_light_theme() else dark
+    fallback = dark if preferred == light else light
+    if preferred.exists():
+        return preferred
+    if fallback.exists():
+        return fallback
+    if legacy.exists():
+        return legacy
+    return preferred
 
 
 def _ensure_single_instance() -> bool:
@@ -76,17 +99,18 @@ def main() -> None:
         print("已有一个实例正在运行，退出。")
         sys.exit(1)
 
-    base_dir = _get_base_dir()
-    _SENTINEL = base_dir / ".sentinel.json"
+    app_dir = _get_app_dir()
+    bundle_dir = _get_bundle_dir()
+    _SENTINEL = app_dir / ".sentinel.json"
 
-    config_path = base_dir / "statistics.configuration.json"
+    config_path = app_dir / "statistics.configuration.json"
     try:
         with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         config = {"startup": "userFirstLogin", "workingApps": [], "idleExempt": []}
 
-    dm = DataManager(base_dir)
+    dm = DataManager(app_dir)
     now = datetime.now()
     dm.ensure_day_files(now)
     _check_crash(dm)
@@ -108,7 +132,7 @@ def main() -> None:
         if _SENTINEL is not None:
             _SENTINEL.unlink(missing_ok=True)
 
-    start_server(dm, base_dir, port=8000)
+    start_server(dm, bundle_dir, port=8000)
 
     monitor = Monitor(
         dm, config,
@@ -118,7 +142,7 @@ def main() -> None:
     )
     monitor.start()
 
-    icon_path = base_dir / "statistics.ico"
+    icon_path = _resolve_tray_icon_path(bundle_dir)
 
     def on_exit() -> None:
         monitor.stop()

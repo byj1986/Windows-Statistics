@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('daily.html', '.'), ('weekly.html', '.'), ('mock-header-choices.html', '.'), ('echarts.min.js', '.'), ('statistics.configuration.json', '.'), ('statistics.ico', '.')],
+    datas=[('daily.html', '.'), ('weekly.html', '.'), ('mock-header-choices.html', '.'), ('echarts.min.js', '.'), ('statistics.configuration.json', '.'), ('statistics_light.ico', '.'), ('statistics_dark.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

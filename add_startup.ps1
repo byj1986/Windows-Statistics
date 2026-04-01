@@ -34,7 +34,24 @@ if (-not $pythonw) {
 # 脚本所在目录即为项目根目录
 $projectDir = $PSScriptRoot
 $mainPy = Join-Path $projectDir "main.py"
-$iconPath = Join-Path $projectDir "statistics.ico"
+
+$useLightTheme = $true
+try {
+    $p = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name AppsUseLightTheme -ErrorAction Stop
+    $useLightTheme = [int]$p.AppsUseLightTheme -ne 0
+} catch {}
+
+$lightIco = Join-Path $projectDir "statistics_light.ico"
+$darkIco = Join-Path $projectDir "statistics_dark.ico"
+$legacyIco = Join-Path $projectDir "statistics.ico"
+if ($useLightTheme) {
+    $iconPath = $lightIco
+    if (-not (Test-Path $iconPath)) { $iconPath = $darkIco }
+} else {
+    $iconPath = $darkIco
+    if (-not (Test-Path $iconPath)) { $iconPath = $lightIco }
+}
+if (-not (Test-Path $iconPath)) { $iconPath = $legacyIco }
 
 if (-not (Test-Path $mainPy)) {
     Write-Host "错误：未找到 main.py（$mainPy），请在项目目录下运行此脚本。" -ForegroundColor Red
