@@ -41,15 +41,15 @@ pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" -
 
 ## 一键打包并加入当前用户启动项
 
-脚本 `build_and_install_startup.ps1` 会：
+脚本入口 `run_build.cmd` 会：
 
 1. 在仓库根目录执行上述 PyInstaller 参数打包；
 2. 若成功，在**当前用户**的「启动」文件夹创建或更新快捷方式 `WindowsStatistics.lnk`，指向 `dist\WindowsStatistics\WindowsStatistics.exe`。
 
-在仓库根目录用 PowerShell 执行：
+在仓库根目录双击运行：
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build_and_install_startup.ps1
+```bat
+.\run_build.cmd
 ```
 
 启动文件夹路径一般为：`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`。
@@ -59,7 +59,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build_and_install_star
 - `add_startup.ps1`：为**源码**方式添加启动快捷方式（使用 `pythonw` 运行 `main.py`），与 exe 打包路径无关。
 - `remove_startup.ps1`：删除启动目录中的 `WindowsStatistics.lnk`。
 
-若已用 `build_and_install_startup.ps1` 指向 exe，一般无需再用 `add_startup.ps1`，除非你想改回源码启动。
+若已用 `run_build.cmd` 指向 exe，一般无需再用 `add_startup.ps1`，除非你想改回源码启动。
 
 ## 配置
 
