@@ -96,7 +96,6 @@
             display: flex;
             justify-content: flex-start;
             align-items: center;
-            gap: 40px;
             margin-bottom: 15px;
             background: var(--bg-card);
             padding: 15px 20px;
@@ -306,7 +305,9 @@
         }
 
         .summary-legend-right {
-            flex: 0 0 auto;
+            flex: 1;
+            min-width: 0;
+            text-align: right;
             color: var(--summary-legend-right);
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
@@ -761,20 +762,22 @@
             const totalHM = secondsToHM(total);
 
             const legend = document.getElementById('summaryDonutLegend');
-            const activeText = `有效：${activePercent.toFixed(1)}%（${secondsToHM(active)}）`;
-            const idleText = `闲置：${idlePercent.toFixed(1)}%（${secondsToHM(idle)}）`;
+            const activeValue = `${activePercent.toFixed(1)}%（${secondsToHM(active)}）`;
+            const idleValue = `${idlePercent.toFixed(1)}%（${secondsToHM(idle)}）`;
             legend.innerHTML = `
                 <div class="summary-legend-row">
                     <div class="summary-legend-left">
                         <span class="summary-legend-swatch" style="background:#36A2EB"></span>
-                        <span>${activeText}</span>
+                        <span>有效：</span>
                     </div>
+                    <div class="summary-legend-right">${activeValue}</div>
                 </div>
                 <div class="summary-legend-row">
                     <div class="summary-legend-left">
                         <span class="summary-legend-swatch" style="background:#FF9F40"></span>
-                        <span>${idleText}</span>
+                        <span>闲置：</span>
                     </div>
+                    <div class="summary-legend-right">${idleValue}</div>
                 </div>
             `;
 
