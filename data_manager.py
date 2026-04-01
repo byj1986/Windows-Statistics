@@ -146,13 +146,17 @@ class DataManager:
         if not sessions and first_time and last_time:
             sessions = [[first_time, last_time]]
 
-        idle_seconds = 0.0
-        for entry in idle_data:
-            s, e = entry.get("start"), entry.get("end")
-            if s and e:
-                diff = self._time_diff(s, e)
-                if diff > 0:
-                    idle_seconds += diff
+        clipped = self._idle_seconds_in_sessions(idle_data, sessions)
+        if clipped is not None:
+            idle_seconds = clipped
+        else:
+            idle_seconds = 0.0
+            for entry in idle_data:
+                s, e = entry.get("start"), entry.get("end")
+                if s and e:
+                    diff = self._time_diff(s, e)
+                    if diff > 0:
+                        idle_seconds += diff
 
         report = {
             "sessions": sessions,
@@ -217,6 +221,86 @@ class DataManager:
                 return (datetime.strptime(end_str, fmt2) - datetime.strptime(start_str, fmt2)).total_seconds()
             except ValueError:
                 return 0.0
+
+    @staticmethod
+    def _parse_dt_value(v: str | int | float) -> datetime | None:
+        if isinstance(v, (int, float)):
+            try:
+                return datetime.fromtimestamp(v)
+            except (OSError, ValueError, OverflowError):
+                return None
+        if not isinstance(v, str):
+            return None
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.strptime(v, fmt)
+            except ValueError:
+                continue
+        try:
+            return datetime.fromisoformat(v.replace(" ", "T"))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _merge_dt_ranges(ranges: list[tuple[datetime, datetime]]) -> list[tuple[datetime, datetime]]:
+        valid = [(a, b) for a, b in ranges if b > a]
+        if not valid:
+            return []
+        valid.sort(key=lambda x: x[0])
+        out: list[tuple[datetime, datetime]] = [valid[0]]
+        for a, b in valid[1:]:
+            la, lb = out[-1]
+            if a <= lb:
+                out[-1] = (la, max(lb, b))
+            else:
+                out.append((a, b))
+        return out
+
+    @staticmethod
+    def _overlap_ranges_seconds(
+        a_list: list[tuple[datetime, datetime]],
+        b_list: list[tuple[datetime, datetime]],
+    ) -> float:
+        total = 0.0
+        for ia, ib in a_list:
+            for sa, sb in b_list:
+                start = max(ia, sa)
+                end = min(ib, sb)
+                if end > start:
+                    total += (end - start).total_seconds()
+        return total
+
+    def _sessions_to_ranges(self, sessions: list) -> list[tuple[datetime, datetime]]:
+        ranges: list[tuple[datetime, datetime]] = []
+        for pair in sessions:
+            if not pair or len(pair) < 2:
+                continue
+            da = self._parse_dt_value(pair[0])
+            db = self._parse_dt_value(pair[1])
+            if da and db and db > da:
+                ranges.append((da, db))
+        return ranges
+
+    def _idle_entries_to_ranges(self, idle_data: list) -> list[tuple[datetime, datetime]]:
+        ranges: list[tuple[datetime, datetime]] = []
+        for entry in idle_data:
+            s, e = entry.get("start"), entry.get("end")
+            if not s or not e:
+                continue
+            ds = self._parse_dt_value(s)
+            de = self._parse_dt_value(e)
+            if ds and de and de > ds:
+                ranges.append((ds, de))
+        return ranges
+
+    def _idle_seconds_in_sessions(self, idle_data: list, sessions: list) -> float | None:
+        sess = self._merge_dt_ranges(self._sessions_to_ranges(sessions))
+        if not sess:
+            return None
+        idle_merged = self._merge_dt_ranges(self._idle_entries_to_ranges(idle_data))
+        if not idle_merged:
+            return 0.0
+        return self._overlap_ranges_seconds(idle_merged, sess)
 
     def _parse_sessions(self, date: datetime) -> list:
         log_lines = self.read_log(date)
