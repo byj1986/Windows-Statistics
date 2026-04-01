@@ -61,8 +61,15 @@ class TrayIcon:
                 work_end = start.replace(hour=18, minute=0, second=0, microsecond=0)
                 if end < work_end:
                     end = work_end
+                now = datetime.now()
+                secs = int((end - now).total_seconds())
+                if secs <= 0:
+                    remaining_hm = "0:00"
+                else:
+                    remaining_hm = f"{secs // 3600}:{(secs % 3600) // 60:02d}"
                 msg = (f"今日开始时间：{start.strftime('%H:%M')}\n"
-                       f"今日下班时间：{end.strftime('%H:%M')}")
+                       f"今日下班时间：{end.strftime('%H:%M')}\n"
+                       f"剩余时间：{remaining_hm}")
                 self.icon.notify(msg, "Windows Statistics")
         webbrowser.open("http://localhost:8000/daily.html")
 
@@ -73,8 +80,12 @@ class TrayIcon:
     def _get_start_time(self, date: datetime) -> datetime | None:
         lines = self.dm.read_log(date)
         startup = self.config.get("startup", "userFirstLogin")
-        primary = {"用户登录"} if startup == "userFirstLogin" else {"应用启动"}
-        secondary = {"应用启动"} if startup == "userFirstLogin" else set()
+        if startup == "userFirstLogin":
+            primary = {"用户登录", "用户解锁"}
+            secondary = {"应用启动"}
+        else:
+            primary = {"应用启动", "系统唤醒"}
+            secondary = set()
         first_primary = first_secondary = None
         for line in lines:
             m = re.match(r"\[(.+?)\]\s+(.+)", line.strip())
