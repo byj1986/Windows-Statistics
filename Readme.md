@@ -31,7 +31,7 @@ python main.py
 
 ## 打包为 exe
 
-与 `pyinstaller命令.txt` 中一致，示例：
+与 `installer/pyinstaller命令.txt` 中一致，示例：
 
 ```bash
 pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" --add-data "daily.html;." --add-data "weekly.html;." --add-data "mock-header-choices.html;." --add-data "echarts.min.js;." --add-data "statistics.configuration.json;." --add-data "statistics_light.ico;." --add-data "statistics_dark.ico;." main.py
@@ -41,7 +41,7 @@ pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" -
 
 ## 一键打包并加入当前用户启动项
 
-脚本入口 `run_build.cmd` 会：
+脚本入口 `installer/run_build.cmd` 会：
 
 1. 在仓库根目录执行上述 PyInstaller 参数打包；
 2. 若成功，在**当前用户**的「启动」文件夹创建或更新快捷方式 `WindowsStatistics.lnk`，指向 `dist\WindowsStatistics\WindowsStatistics.exe`。
@@ -49,17 +49,17 @@ pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" -
 在仓库根目录双击运行：
 
 ```bat
-.\run_build.cmd
+.\installer\run_build.cmd
 ```
 
 启动文件夹路径一般为：`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`。
 
 ## 其他脚本（源码自启）
 
-- `add_startup.ps1`：为**源码**方式添加启动快捷方式（使用 `pythonw` 运行 `main.py`），与 exe 打包路径无关。
-- `remove_startup.ps1`：删除启动目录中的 `WindowsStatistics.lnk`。
+- `scripts/add_startup.ps1`：为**源码**方式添加启动快捷方式（使用 `pythonw` 运行 `main.py`），与 exe 打包路径无关。
+- `scripts/remove_startup.ps1`：删除启动目录中的 `WindowsStatistics.lnk`。
 
-若已用 `run_build.cmd` 指向 exe，一般无需再用 `add_startup.ps1`，除非你想改回源码启动。
+若已用 `installer/run_build.cmd` 指向 exe，一般无需再用 `scripts/add_startup.ps1`，除非你想改回源码启动。
 
 ## 配置
 

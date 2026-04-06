@@ -22,7 +22,7 @@ function New-OrUpdate-Shortcut(
   $sc.Save()
 }
 
-$repoRoot = $PSScriptRoot
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location -LiteralPath $repoRoot
 
 Assert-PathExists (Join-Path $repoRoot "main.py") "Run this script from the repo root (where main.py is)."

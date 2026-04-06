@@ -1,3 +1,5 @@
+cd ..
+
 pyinstaller --noconfirm --clean --onedir --windowed \
   --name "WindowsStatistics" \
   --add-data "daily.html;." \

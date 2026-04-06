@@ -31,8 +31,8 @@ if (-not $pythonw) {
     exit 1
 }
 
-# 脚本所在目录即为项目根目录
-$projectDir = $PSScriptRoot
+# 脚本位于 scripts\，项目根目录为其上一级
+$projectDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $mainPy = Join-Path $projectDir "main.py"
 
 $useLightTheme = $true
