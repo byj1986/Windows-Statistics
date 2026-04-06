@@ -246,7 +246,7 @@
       }
 
       .chart-box {
-        flex: 4;
+        flex: 6;
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -341,7 +341,7 @@
       }
 
       .details-box {
-        flex: 6;
+        flex: 4;
       }
 
       .details-list {
@@ -475,9 +475,8 @@
               <div class="stat-label">总时间</div>
             </div>
           </div>
-          <ul class="details-list" id="detailsList"></ul>
-          <div id="noDataMsg" class="no-data-msg" style="display: none">
-            所选日期无数据
+          <div class="chart-wrapper">
+            <div id="usagePieChart"></div>
           </div>
         </div>
         <div class="chart-box">
@@ -486,8 +485,9 @@
             <div class="stat-label">系统运行时长</div>
           </div>
 
-          <div class="chart-wrapper">
-            <div id="usagePieChart"></div>
+          <ul class="details-list" id="detailsList"></ul>
+          <div id="noDataMsg" class="no-data-msg" style="display: none">
+            所选日期无数据
           </div>
         </div>
       </div>
