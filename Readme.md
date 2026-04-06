@@ -31,7 +31,9 @@ python main.py
 
 ## 打包为 exe
 
-与 `installer/pyinstaller命令.txt` 中一致，示例：
+以下命令的**当前工作目录须为仓库根目录**（与 `main.py`、`daily.html`、各 `.ico` 等同级），否则 PyInstaller 找不到 `--add-data` 与入口脚本。
+
+在项目根执行：
 
 ```bash
 pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" --add-data "daily.html;." --add-data "weekly.html;." --add-data "mock-header-choices.html;." --add-data "echarts.min.js;." --add-data "statistics.configuration.json;." --add-data "statistics_light.ico;." --add-data "statistics_dark.ico;." main.py
@@ -39,11 +41,21 @@ pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" -
 
 产物目录：`dist\WindowsStatistics\`，主程序为 `WindowsStatistics.exe`。
 
+**`installer/pyinstaller命令.txt`**：文中先 `cd ..` 表示假定你当前在 `installer` 目录，回到上一级才是仓库根；若你已在根目录，请勿再执行 `cd ..`。
+
+**`installer/WindowsStatistics.spec`**：spec 内路径相对**运行 pyinstaller 时的当前目录**，不是相对 spec 文件位置。请在仓库根执行，例如：
+
+```bash
+pyinstaller installer\WindowsStatistics.spec
+```
+
+不要在 `installer` 目录内单独运行 `pyinstaller WindowsStatistics.spec`，否则会找不到根目录下的 `main.py` 与资源文件。
+
 ## 一键打包并加入当前用户启动项
 
-脚本入口 `installer/run_build.cmd` 会：
+`installer/build_and_install_startup.ps1` 会根据脚本所在位置自动切换到仓库根再打包；通常通过 **`installer/run_build.cmd`** 调用即可。
 
-1. 在仓库根目录执行上述 PyInstaller 参数打包；
+1. 在仓库根目录执行与上文相同的 PyInstaller 参数打包；
 2. 若成功，在**当前用户**的「启动」文件夹创建或更新快捷方式 `WindowsStatistics.lnk`，指向 `dist\WindowsStatistics\WindowsStatistics.exe`。
 
 在仓库根目录双击运行：
@@ -51,6 +63,8 @@ pyinstaller --noconfirm --clean --onedir --windowed --name "WindowsStatistics" -
 ```bat
 .\installer\run_build.cmd
 ```
+
+也可在任意位置执行：`powershell -NoProfile -ExecutionPolicy Bypass -File "<仓库>\installer\build_and_install_startup.ps1"`（将 `<仓库>` 换为你的项目路径）。
 
 启动文件夹路径一般为：`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`。
 
