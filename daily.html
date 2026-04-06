@@ -90,7 +90,7 @@
       }
 
       .dashboard-wrapper {
-        padding: 20px;
+        padding: 10px;
         height: 100%;
         box-sizing: border-box;
         display: flex;
@@ -105,9 +105,8 @@
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        margin-bottom: 15px;
         background: var(--bg-card);
-        padding: 15px 20px;
+        padding: 10px 15px;
         border-radius: 8px;
         box-shadow: var(--shadow-card);
       }
@@ -243,6 +242,7 @@
         gap: 10px;
         min-height: 0;
         height: calc(100% - 50px);
+        margin-top: 12px;
       }
 
       .chart-box {
@@ -255,8 +255,7 @@
 
       .chart-wrapper {
         background: var(--bg-card);
-        border-radius: 8px;
-        padding: 15px;
+        border-radius: 12px;
         min-height: 320px;
         box-shadow: var(--shadow-card);
         display: flex;
@@ -265,12 +264,68 @@
         justify-content: flex-start;
         position: relative;
         height: 100%;
-        margin-top: 12px;
       }
 
       #usagePieChart {
         width: 100%;
         height: min(560px, 62vh);
+      }
+
+      .time-summary-pill {
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        display: flex;
+      }
+
+      .time-summary-seg {
+        flex: 1;
+        min-width: 0;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+
+      .time-summary-seg.total {
+        background: linear-gradient(
+          90deg,
+          rgba(181, 215, 51, 0.22) 0%,
+          rgba(181, 215, 51, 0.08) 55%,
+          rgba(181, 215, 51, 0) 100%
+        );
+        border-left: 10px solid #b5d733;
+      }
+
+      .time-summary-seg.system {
+        background: linear-gradient(
+          270deg,
+          rgba(82, 211, 211, 0.22) 0%,
+          rgba(82, 211, 211, 0.08) 55%,
+          rgba(82, 211, 211, 0) 100%
+        );
+        border-right: 10px solid #52d3d3;
+      }
+
+      .time-summary-label {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+      }
+
+      .time-summary-value {
+        font-size: 22px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-primary);
+        white-space: nowrap;
       }
 
       #summaryBarWrap {
@@ -285,7 +340,6 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 0 12px;
         background: transparent;
         box-shadow: none;
         margin-left: auto;
@@ -345,13 +399,11 @@
       }
 
       .details-list {
-        margin-top: 12px;
-        padding: 1rem;
+        padding: 0;
         border-radius: 8px;
-        background: var(--bg-card);
+        background: transparent;
         overflow-y: auto;
-        box-shadow: var(--shadow-card);
-        height: calc(100% - 148px);
+        height: 100%;
       }
 
       ul {
@@ -361,35 +413,58 @@
       }
 
       li {
-        margin-bottom: 8px;
+        margin-bottom: 5px;
+      }
+
+      .details-list > li {
+        background: var(--bg-card);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+
+      .details-list.has-vscroll > li {
+        margin-right: 8px;
       }
 
       .app-row {
         cursor: pointer;
-        padding: 10px 15px;
-        background: var(--app-row-bg);
+        padding: 5px;
+        background: transparent;
         display: flex;
         justify-content: space-between;
-        border-radius: 6px;
-        font-size: 14px;
+        border-radius: 0;
         transition: background 0.2s;
         color: var(--text-primary);
+        align-items: center;
+        gap: 10px;
+        user-select: none;
       }
 
       .app-row:hover {
-        background: var(--app-row-hover);
+        background: color-mix(in srgb, var(--app-row-hover) 70%, transparent);
       }
 
       .app-name {
         font-weight: 600;
         color: var(--app-name);
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .app-name-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .app-row-duration {
         color: var(--text-primary);
         font-variant-numeric: tabular-nums;
         flex-shrink: 0;
-        margin-left: 8px;
+        padding: 5px;
       }
 
       @media (prefers-color-scheme: dark) {
@@ -399,20 +474,21 @@
       }
 
       .toggle-icon {
-        margin-right: 8px;
-        font-weight: bold;
+        margin-right: 0;
+        font-weight: 900;
         color: var(--toggle-icon);
         display: inline-block;
-        width: 16px;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
         text-align: center;
       }
 
       .sub-list {
-        padding-left: 35px;
+        padding: 10px 14px 12px 14px;
         display: none;
-        margin-top: 5px;
-        border-left: 2px solid var(--border-sub);
-        margin-left: 10px;
+        margin-top: 0;
+        border-top: 1px solid var(--border-sub);
       }
 
       .sub-item {
@@ -420,8 +496,15 @@
         color: var(--sub-item);
         display: flex;
         justify-content: space-between;
-        padding: 6px 0;
-        border-bottom: 1px dashed var(--border-sub);
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border-sub);
+        background: color-mix(in srgb, var(--bg-page) 22%, transparent);
+        margin-top: 8px;
+      }
+
+      .sub-item:first-child {
+        margin-top: 0;
       }
 
       .active .sub-list {
@@ -469,22 +552,21 @@
 
       <div class="content-area">
         <div class="details-box">
-          <div class="stats-right">
-            <div class="stat-card totalTime">
-              <div class="stat-value" id="totalTime">-</div>
-              <div class="stat-label">总时间</div>
-            </div>
-          </div>
           <div class="chart-wrapper">
+            <div class="time-summary-pill" aria-label="总时间与系统运行时长">
+              <div class="time-summary-seg total">
+                <div class="time-summary-value" id="totalTime">-</div>
+                <div class="time-summary-label">总时间</div>
+              </div>
+              <div class="time-summary-seg system">
+                <div class="time-summary-value" id="totalUsed">-</div>
+                <div class="time-summary-label">系统运行时长</div>
+              </div>
+            </div>
             <div id="usagePieChart"></div>
           </div>
         </div>
         <div class="chart-box">
-          <div class="stat-card systemRun">
-            <div class="stat-value" id="totalUsed">-</div>
-            <div class="stat-label">系统运行时长</div>
-          </div>
-
           <ul class="details-list" id="detailsList"></ul>
           <div id="noDataMsg" class="no-data-msg" style="display: none">
             所选日期无数据
@@ -768,7 +850,7 @@
           const li = document.createElement("li");
           const row = document.createElement("div");
           row.className = "app-row";
-          row.innerHTML = `<span class="app-name"><span class="toggle-icon">+</span> ${app.name}</span><span class="app-row-duration">${secondsToMinutes(app.total)}</span>`;
+          row.innerHTML = `<span class="app-name"><span class="toggle-icon">+</span><span class="app-name-text">${app.name}</span></span><span class="app-row-duration">${secondsToMinutes(app.total)}</span>`;
           row.onclick = () => {
             li.classList.toggle("active");
             row.querySelector(".toggle-icon").innerText = li.classList.contains(
